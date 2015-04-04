@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://www.miteksystems.com/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" targetNamespace="http://www.miteksystems.com/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://www.miteksystems.com/">
+      <s:element name="CheckConnection">
+        <s:complexType />
+      </s:element>
+      <s:element name="CheckConnectionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="CheckConnectionResult" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="InsertProcessedTransaction">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="transactionId" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="processesdFields" type="tns:ArrayOfProcessesedField" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="ArrayOfProcessesedField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="ProcessesedField" nillable="true" type="tns:ProcessesedField" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ProcessesedField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="FieldName" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="FieldValue" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="InsertProcessedTransactionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="InsertProcessedTransactionResult" type="s:int" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AuthenticateUser">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AuthenticateUserResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="AuthenticateUserResult" type="tns:AuthenticateUserResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="AuthenticateUserResult">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="MIPVersion" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="AvailableJobs" type="tns:ArrayOfGetJobSettingsResult" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ArrayOfGetJobSettingsResult">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="GetJobSettingsResult" nillable="true" type="tns:GetJobSettingsResult" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="GetJobSettingsResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="RequiredMaxImageSize" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Name" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ShortDescription" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="AllowVideoFrames" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="AllowVideoFramesMode" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="AutoCaptureFailoverToStillCapture" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="AutoTorchAppearanceDelay" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="AutoTorchLowLightMinimum" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="AutoTorchSuspendProcessingTime" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraBrightness" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraDegreesThreshold" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraGuideImageAppearanceFillPercentage" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraGuideImageEnabled" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraGuideImageReappearanceDelay" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraGuideImageStillCameraAlpha" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraGuideImageStillCameraEnabled" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraInitialTimeoutInSeconds" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraMaxTimeouts" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraSharpness" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraTimeoutInSeconds" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraVideoAutoCaptureProcess" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraViewfinderMinFill" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraViewfinderMinHorizontalFill" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="CameraViewfinderMinVerticalFill" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="ConsecutiveVideoFrames" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LightingStillCamera" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LightingVideo" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="RequiredCompressionLevel" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="RequiredMaxImageHeightAndWidth" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="ScreenRotationSuspendTime" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="SmartBubbleAppearanceDelay" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="SmartBubbleCumulativeErrorThreshold" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="SmartBubbleEnabled" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="TutorialBrandNewUserDuration" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="UnnecessaryScreenTouchLimit" type="s:int" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="RegisterCustomJob">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="jobName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="jsonJobDefinition" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="RegisterCustomJobResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="RegisterCustomJobResult" type="tns:RegisterCustomJobResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="RegisterCustomJobResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="ErrorCode" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="ErrorMessage" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="GetJobSettings">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="documentIdentifier" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetJobSettingsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetJobSettingsResult" type="tns:GetJobSettingsResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="InsertPhoneTransaction">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="base64Image" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="compressionLevel" type="s:int" />
+            <s:element minOccurs="0" maxOccurs="1" name="documentIdentifier" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="documentHints" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="dataReturnLevel" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="returnImageType" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="rotateImage" type="s:int" />
+            <s:element minOccurs="0" maxOccurs="1" name="note" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="InsertPhoneTransactionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="InsertPhoneTransactionResult" type="tns:InsertPhoneTransactionResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="InsertPhoneTransactionResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Transaction" type="tns:PhoneTransaction" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="PhoneTransaction">
+        <s:complexContent mixed="false">
+          <s:extension base="tns:Transaction" />
+        </s:complexContent>
+      </s:complexType>
+      <s:complexType name="Transaction">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="IQAGood" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="IQACode" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="IQAMessage" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="IQAFields" type="tns:ArrayOfIQAField" />
+          <s:element minOccurs="0" maxOccurs="1" name="TransactionID" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="DocumentIdentifier" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ProcessedDate" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="OriginalImage" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="GrayscaleImage" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="BitonalImage" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ExtractedRawOCR" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Note" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Addendum" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Codeline" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="CodelineConfidence" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="CodelineFields" type="tns:ArrayOfCodelineField" />
+          <s:element minOccurs="0" maxOccurs="1" name="ExtractedFields" type="tns:ArrayOfExtractedField" />
+          <s:element minOccurs="0" maxOccurs="1" name="MatchingTemplate" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="MatchingTemplateConfidence" type="s:int" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ArrayOfIQAField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="IQAField" nillable="true" type="tns:IQAField" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="IQAField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Name" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="Score" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="Threshold" type="s:int" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ArrayOfCodelineField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="CodelineField" nillable="true" type="tns:CodelineField" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="CodelineField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="BestCharacter" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="BestConfidence" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="SecondBestCharacter" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="SecondBestConfidence" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="Sequence" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="UpperLeftX" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="UpperLeftY" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LowerRightX" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LowerRightY" type="s:int" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ArrayOfExtractedField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="ExtractedField" nillable="true" type="tns:ExtractedField" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ExtractedField">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Name" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="Confidence" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Value" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ValueStandardized" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ValuePostProcessed" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ValueUserUpdated" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="ValueBest" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="UpperLeftX" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="UpperLeftY" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LowerRightX" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="LowerRightY" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="KeywordFound" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="UpdatePhoneTransaction">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="transactionId" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="updatedExtractedRawOcr" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="updatedCodeline" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="updatedExtractedFields" type="tns:ArrayOfExtractedField" />
+            <s:element minOccurs="1" maxOccurs="1" name="dataReturnLevel" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="returnImageType" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="rotateImage" type="s:int" />
+            <s:element minOccurs="0" maxOccurs="1" name="updatedNote" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="UpdatePhoneTransactionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="UpdatePhoneTransactionResult" type="tns:UpdatePhoneTransactionResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="UpdatePhoneTransactionResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Transaction" type="tns:PhoneTransaction" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="GetPhoneTransactionList">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="dataReturnLevel" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="returnImageType" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="rotateImage" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="pageIndex" type="s:int" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetPhoneTransactionListResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetPhoneTransactionListResult" type="tns:GetPhoneTransactionListResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="GetPhoneTransactionListResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Transactions" type="tns:ArrayOfPhoneTransaction" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="ArrayOfPhoneTransaction">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="PhoneTransaction" nillable="true" type="tns:PhoneTransaction" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="GetPhoneTransaction">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="userName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="password" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="phoneKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="orgName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="transactionId" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="dataReturnLevel" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="returnImageType" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="rotateImage" type="s:int" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetPhoneTransactionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetPhoneTransactionResult" type="tns:GetPhoneTransactionResult" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="GetPhoneTransactionResult">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="SecurityResult" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Transaction" type="tns:PhoneTransaction" />
+        </s:sequence>
+      </s:complexType>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="CheckConnectionSoapIn">
+    <wsdl:part name="parameters" element="tns:CheckConnection" />
+  </wsdl:message>
+  <wsdl:message name="CheckConnectionSoapOut">
+    <wsdl:part name="parameters" element="tns:CheckConnectionResponse" />
+  </wsdl:message>
+  <wsdl:message name="InsertProcessedTransactionSoapIn">
+    <wsdl:part name="parameters" element="tns:InsertProcessedTransaction" />
+  </wsdl:message>
+  <wsdl:message name="InsertProcessedTransactionSoapOut">
+    <wsdl:part name="parameters" element="tns:InsertProcessedTransactionResponse" />
+  </wsdl:message>
+  <wsdl:message name="AuthenticateUserSoapIn">
+    <wsdl:part name="parameters" element="tns:AuthenticateUser" />
+  </wsdl:message>
+  <wsdl:message name="AuthenticateUserSoapOut">
+    <wsdl:part name="parameters" element="tns:AuthenticateUserResponse" />
+  </wsdl:message>
+  <wsdl:message name="RegisterCustomJobSoapIn">
+    <wsdl:part name="parameters" element="tns:RegisterCustomJob" />
+  </wsdl:message>
+  <wsdl:message name="RegisterCustomJobSoapOut">
+    <wsdl:part name="parameters" element="tns:RegisterCustomJobResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetJobSettingsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetJobSettings" />
+  </wsdl:message>
+  <wsdl:message name="GetJobSettingsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetJobSettingsResponse" />
+  </wsdl:message>
+  <wsdl:message name="InsertPhoneTransactionSoapIn">
+    <wsdl:part name="parameters" element="tns:InsertPhoneTransaction" />
+  </wsdl:message>
+  <wsdl:message name="InsertPhoneTransactionSoapOut">
+    <wsdl:part name="parameters" element="tns:InsertPhoneTransactionResponse" />
+  </wsdl:message>
+  <wsdl:message name="UpdatePhoneTransactionSoapIn">
+    <wsdl:part name="parameters" element="tns:UpdatePhoneTransaction" />
+  </wsdl:message>
+  <wsdl:message name="UpdatePhoneTransactionSoapOut">
+    <wsdl:part name="parameters" element="tns:UpdatePhoneTransactionResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetPhoneTransactionListSoapIn">
+    <wsdl:part name="parameters" element="tns:GetPhoneTransactionList" />
+  </wsdl:message>
+  <wsdl:message name="GetPhoneTransactionListSoapOut">
+    <wsdl:part name="parameters" element="tns:GetPhoneTransactionListResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetPhoneTransactionSoapIn">
+    <wsdl:part name="parameters" element="tns:GetPhoneTransaction" />
+  </wsdl:message>
+  <wsdl:message name="GetPhoneTransactionSoapOut">
+    <wsdl:part name="parameters" element="tns:GetPhoneTransactionResponse" />
+  </wsdl:message>
+  <wsdl:portType name="ImagingPhoneServiceSoap">
+    <wsdl:operation name="CheckConnection">
+      <wsdl:input message="tns:CheckConnectionSoapIn" />
+      <wsdl:output message="tns:CheckConnectionSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="InsertProcessedTransaction">
+      <wsdl:input message="tns:InsertProcessedTransactionSoapIn" />
+      <wsdl:output message="tns:InsertProcessedTransactionSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="AuthenticateUser">
+      <wsdl:input message="tns:AuthenticateUserSoapIn" />
+      <wsdl:output message="tns:AuthenticateUserSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="RegisterCustomJob">
+      <wsdl:input message="tns:RegisterCustomJobSoapIn" />
+      <wsdl:output message="tns:RegisterCustomJobSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetJobSettings">
+      <wsdl:input message="tns:GetJobSettingsSoapIn" />
+      <wsdl:output message="tns:GetJobSettingsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="InsertPhoneTransaction">
+      <wsdl:input message="tns:InsertPhoneTransactionSoapIn" />
+      <wsdl:output message="tns:InsertPhoneTransactionSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="UpdatePhoneTransaction">
+      <wsdl:input message="tns:UpdatePhoneTransactionSoapIn" />
+      <wsdl:output message="tns:UpdatePhoneTransactionSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransactionList">
+      <wsdl:input message="tns:GetPhoneTransactionListSoapIn" />
+      <wsdl:output message="tns:GetPhoneTransactionListSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransaction">
+      <wsdl:input message="tns:GetPhoneTransactionSoapIn" />
+      <wsdl:output message="tns:GetPhoneTransactionSoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="ImagingPhoneServiceSoap" type="tns:ImagingPhoneServiceSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="CheckConnection">
+      <soap:operation soapAction="http://www.miteksystems.com/CheckConnection" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="InsertProcessedTransaction">
+      <soap:operation soapAction="http://www.miteksystems.com/InsertProcessedTransaction" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AuthenticateUser">
+      <soap:operation soapAction="http://www.miteksystems.com/AuthenticateUser" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterCustomJob">
+      <soap:operation soapAction="http://www.miteksystems.com/RegisterCustomJob" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetJobSettings">
+      <soap:operation soapAction="http://www.miteksystems.com/GetJobSettings" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="InsertPhoneTransaction">
+      <soap:operation soapAction="http://www.miteksystems.com/InsertPhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdatePhoneTransaction">
+      <soap:operation soapAction="http://www.miteksystems.com/UpdatePhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransactionList">
+      <soap:operation soapAction="http://www.miteksystems.com/GetPhoneTransactionList" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransaction">
+      <soap:operation soapAction="http://www.miteksystems.com/GetPhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="ImagingPhoneServiceSoap12" type="tns:ImagingPhoneServiceSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="CheckConnection">
+      <soap12:operation soapAction="http://www.miteksystems.com/CheckConnection" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="InsertProcessedTransaction">
+      <soap12:operation soapAction="http://www.miteksystems.com/InsertProcessedTransaction" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AuthenticateUser">
+      <soap12:operation soapAction="http://www.miteksystems.com/AuthenticateUser" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterCustomJob">
+      <soap12:operation soapAction="http://www.miteksystems.com/RegisterCustomJob" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetJobSettings">
+      <soap12:operation soapAction="http://www.miteksystems.com/GetJobSettings" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="InsertPhoneTransaction">
+      <soap12:operation soapAction="http://www.miteksystems.com/InsertPhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdatePhoneTransaction">
+      <soap12:operation soapAction="http://www.miteksystems.com/UpdatePhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransactionList">
+      <soap12:operation soapAction="http://www.miteksystems.com/GetPhoneTransactionList" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetPhoneTransaction">
+      <soap12:operation soapAction="http://www.miteksystems.com/GetPhoneTransaction" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="ImagingPhoneService">
+    <wsdl:port name="ImagingPhoneServiceSoap" binding="tns:ImagingPhoneServiceSoap">
+      <soap:address location="https://mip03.ddc.mitekmobile.com/MobileImagingPlatformWebServices/ImagingPhoneService.asmx" />
+    </wsdl:port>
+    <wsdl:port name="ImagingPhoneServiceSoap12" binding="tns:ImagingPhoneServiceSoap12">
+      <soap12:address location="https://mip03.ddc.mitekmobile.com/MobileImagingPlatformWebServices/ImagingPhoneService.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
