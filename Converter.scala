@@ -38,6 +38,8 @@ case class MitekGetJobSettingsResult(@Key("_id") name: String, shortDescription:
   smartBubbleEnabled: Int, tutorialBrandNewUserDuration: Int, unnecessaryScreenTouchLimit: Int
 )
 
+case class MitekMpiVersion(@Key("_id") name: String, version: String)
+
 object MitekGetJobSettingsResult {
   def fromScalaxbClass(o: GetJobSettingsResult): MitekGetJobSettingsResult = o match {
     case GetJobSettingsResult(
@@ -126,15 +128,25 @@ object MitekGetJobSettingsResultConversions {
 case class MitekGetJobSettingsResultDao(coll: MongoCollection) extends
   SalatDAO[MitekGetJobSettingsResult, String] (collection = coll)
 
-case class MitekMpiVersion(@Key("_id") name: String, version: String)
-
 case class MitekMpiVersionDao(coll: MongoCollection) extends
   SalatDAO[MitekMpiVersion, String] (collection = coll)
 
-object XmlImport extends App {
- import MitekGetJobSettingsResultConversions._
+object JobSettingsImport extends App {
+  implicit class Piper[A](val x: A) extends AnyVal {
+    def |>[B](f: A => B) = f(x)
+  }
 
- // Config: userName, pass, phoneKey, orgName, timeout, documentKey, db, collection
+  val imp = SoapImport // XmlImport
+  imp.data |> imp.extract |> imp.persist
+}
+
+object SoapImport {
+  implicit class Piper[A](val x: A) extends AnyVal {
+    def |>[B](f: A => B) = f(x)
+  }
+
+  val mongoClient: MongoClient = MongoClient()
+  val coll: MongoCollection = mongoClient("test")("test")
   implicit val system = ActorSystem("timeoutSystem")
   implicit val timeout = 3 seconds
   implicit class FutureExtensions[T](f: Future[T]) {
@@ -146,12 +158,6 @@ object XmlImport extends App {
 
   def timeoutEx(msg: String) = new TimeoutException(msg)
 
-  val mongoClient: MongoClient = MongoClient()
-  val coll: MongoCollection = mongoClient("test")("test")
-
-  val mitekJobSettingsResultDao = MitekGetJobSettingsResultDao(coll)
-  val mpiVersionDao = MitekMpiVersionDao(coll)
-
   val service: ImagingPhoneServiceSoap =
     (new mitek.ImagingPhoneServiceSoap12Bindings
       with scalaxb.SoapClientsAsync
@@ -161,102 +167,112 @@ object XmlImport extends App {
   val pass = Some("up2cFAVdQCzv")
   val phoneKey = Some("MitekTest")
   val orgName = Some("voatz")
+  val collKey = "MPIVersion"
 
-
-  val response: Future[AuthenticateUserResponse] = async {
-    /*
+  val data: Future[AuthenticateUserResponse] = async {
     val checkConnection: Future[Boolean] =
       service.checkConnection() withTimeout timeoutEx("checkConneciton timeout")
-    */
-    val fetchSettings: Future[AuthenticateUserResponse] =
+
+    val authUser: Future[AuthenticateUserResponse] =
       service.authenticateUser(userName, pass, phoneKey, orgName) withTimeout
         timeoutEx("authenticate user timeout")
 
-    await { fetchSettings }
-    /*
-    val check: Boolean = await { checkConnection }
-    if (check == true) await { fetchSettings }
-    else throw timeoutEx("checkConection timeout")
-    */
+    await { checkConnection }
+    await { authUser }
   }
 
-  def extract(response: Future[AuthenticateUserResponse]) =
-    response map { resp =>
-      for {
+  def extract(response: Future[AuthenticateUserResponse]): Future[AuthenticateEither] = {
+    val ret = for {
+      resp <- response
+      option = for {
         result <- resp.AuthenticateUserResult
         mpiVersion <- result.MIPVersion
-        securityResult = result.SecurityResult
+        securityCode = result.SecurityResult
         jobSettingsArray <- result.AvailableJobs
-      } yield (mpiVersion, jobSettingsArray)
-    }
+        res = if (securityCode == 0) Right(mpiVersion, jobSettingsArray) else Left(securityCode)
+      } yield res
+    } yield option
+    ret
+  }
 
-  def persist(data: Future[Option[(String, ArrayOfGetJobSettingsResult)]]): Unit = {
-    def insert(availableJobs: ArrayOfGetJobSettingsResult) = {
-      for {
-        seq <- availableJobs.GetJobSettingsResult
-        el <- seq
-      } yield {
-        val obj = MitekGetJobSettingsResult.fromScalaxbClass(el)
-        mitekJobSettingsResultDao.insert(obj)
-      }
-      println("inserted something new")
-    }
-
+  type AuthenticateEither = Option[Either[Int, (String, ArrayOfGetJobSettingsResult)]]
+  def persist(data: Future[AuthenticateEither]): Unit = {
     data foreach { opt =>
-      val (version, availableJobs) = opt match {
-        case Some(tuple) => tuple
-        case None => ("", ArrayOfGetJobSettingsResult())
+      val either = opt getOrElse {
+        shutdown()
+        throw new RuntimeException("Should Never Happen")
       }
 
-      mpiVersionDao.findOneById("MPIVersion") match {
-        case None =>
-          mpiVersionDao.insert(MitekMpiVersion("MPIVersion", version))
-          insert(availableJobs)
-        case Some(v) =>
-          if (v.version != version) {
+      val mpiVersionDao = MitekMpiVersionDao(coll)
+      /* error handling for successfull future with an error security code */
+      val (version, availableJobs) = either match {
+        case Right(tuple) => tuple
+        case Left(code) => println(s"error code: $code"); ("", ArrayOfGetJobSettingsResult())
+      }
+
+      if (version != "") {
+        val checked = mpiVersionDao.findOneById(collKey) map { _.version == version }
+        checked match {
+          case Some(true) => ;
+          case Some(false) =>
             coll.drop
-            insert(availableJobs)
-          }
+            MitekMpiVersion(collKey, version) |> mpiVersionDao.insert
+            availableJobs |> insert
+          case None =>
+            MitekMpiVersion(collKey, version) |> mpiVersionDao.insert
+            availableJobs |> insert
+        }
       }
       shutdown()
     }
 
+    /* caputes check conneciton and authenticate timeouts */
     for(exc <- data.failed) {
       println(exc.getMessage)
       shutdown()
     }
   }
 
-  def shutdown(): Unit = {
-    println(mitekJobSettingsResultDao.findOneById("DRIVER_LICENSE_UT"))
-    println(mpiVersionDao.findOneById("MPIVersion"))
-    system.shutdown
-    mongoClient close
+  def insert(availableJobs: ArrayOfGetJobSettingsResult) = {
+    val mitekJobSettingsResultDao = MitekGetJobSettingsResultDao(coll)
+    for {
+      seq <- availableJobs.GetJobSettingsResult
+      el <- seq
+    } yield {
+      val obj = MitekGetJobSettingsResult.fromScalaxbClass(el)
+
+      mitekJobSettingsResultDao.insert(obj)
+    }
+    println("inserted new data")
   }
 
-  persist(extract(response))
+  def shutdown(): Unit = {
+    //println(mitekJobSettingsResultDao.findOneById("DRIVER_LICENSE_UT"))
+    //println(mpiVersionDao.findOneById("MPIVersion"))
+    system.shutdown
+    mongoClient.close
+  }
+}
 
-/*
+
+object XmlImport {
+  import xml._
   //println(mitekJobSettingsResultDao.find(
     //MitekGetJobSettingsResultQuery(name = Some("DRIVER_LICENSE_UT"))).toIterable)
 
-  importXML("./src/main/resources/AuthenticateUser.xml", "GetJobSettingsResult")
+  val mongoClient: MongoClient = MongoClient()
+  val coll: MongoCollection = mongoClient("test")("test")
 
-  def getJobSettingsResults(xml: Node, node: String): Vector[MitekGetJobSettingsResult] = {
-    (for(el <- (xml \\ node)) yield {
-      val obj = scalaxb.fromXML[GetJobSettingsResult](el)
-      MitekGetJobSettingsResult.fromScalaxbClass(obj)
-    }).toVector
+  // useful method just in case
+  def clearScope(x: Node): Node = x match {
+    case e:Elem => e.copy(scope=TopScope, child = e.child.map(clearScope))
+    case o => o
   }
 
-  def importXML(source: String, node: String) = {
-    val xml = loadXml(source)
-    val jobSettings = getJobSettingsResults(xml, node)
-    val securityResult = xml \\ "SecurityResult" // TODO: need to check 0 return code
-    val version = xml \\ "MIPVersion"
-    //println(jobSettingsResultToDBObject(jobSettings.head))
-    val save = persist(jobSettings)
-  }
+  val source = "./src/main/resources/AuthenticateUser.xml"
+  val node = "GetJobSettingsResult"
+
+  val data = loadXml(source)
 
   def loadXml(source: String): Node = {
     try {
@@ -266,12 +282,23 @@ object XmlImport extends App {
     }
   }
 
-  // useful method just in case
-  def clearScope(x: Node): Node = x match {
-    case e:Elem => e.copy(scope=TopScope, child = e.child.map(clearScope))
-    case o => o
+  def getJobSettingsResults(xml: Node): Vector[MitekGetJobSettingsResult] = {
+    (for(el <- (xml \\ node)) yield {
+      val obj = scalaxb.fromXML[GetJobSettingsResult](el)
+      MitekGetJobSettingsResult.fromScalaxbClass(obj)
+    }).toVector
   }
 
-*/
+  def extract(xml: Node) = {
+    val jobSettings = getJobSettingsResults(xml)
 
+    val securityResult = xml \\ "SecurityResult" // TODO: need to check 0 return code
+    val version = xml \\ "MIPVersion"
+    jobSettings
+  }
+
+  def persist(settings: Vector[MitekGetJobSettingsResult]) = {
+    val mitekJobSettingsResultDao = MitekGetJobSettingsResultDao(coll)
+    settings foreach { obj => mitekJobSettingsResultDao.insert(obj) }
+  }
 }
