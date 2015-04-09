@@ -11,8 +11,8 @@ import scala.language.postfixOps
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.Future
-import scala.util.{Try, Success, Failure}
 import scala.async.Async.{async, await}
+import scala.util.{Try, Success, Failure}
 
 import mitek._
 
@@ -132,20 +132,21 @@ case class MitekMpiVersionDao(coll: MongoCollection) extends
   SalatDAO[MitekMpiVersion, String] (collection = coll)
 
 object JobSettingsImport extends App {
-  implicit class Piper[A](val x: A) extends AnyVal {
-    def |>[B](f: A => B) = f(x)
-  }
+  implicit class Piper[A](val x: A) extends AnyVal { def |>[B](f: A => B) = f(x) }
 
-  val imp = SoapImport // XmlImport
+  //TODO check mongoClient is opened
+  implicit val client = MongoClient()
+  val imp = SoapImport(client) //else XmlImport(MongoClient())
   imp.data |> imp.extract |> imp.persist
 }
 
 object SoapImport {
-  implicit class Piper[A](val x: A) extends AnyVal {
-    def |>[B](f: A => B) = f(x)
-  }
+  implicit class Piper[A](val x: A) extends AnyVal { def |>[B](f: A => B) = f(x) }
+  def apply(implicit client: MongoClient) = new SoapImport
+}
 
-  val mongoClient: MongoClient = MongoClient()
+class SoapImport(implicit mongoClient: MongoClient) {
+  import SoapImport._
   val coll: MongoCollection = mongoClient("test")("test")
   implicit val system = ActorSystem("timeoutSystem")
   implicit val timeout = 3 seconds
@@ -182,7 +183,7 @@ object SoapImport {
   }
 
   def extract(response: Future[AuthenticateUserResponse]): Future[AuthenticateEither] = {
-    val ret = for {
+    for {
       resp <- response
       option = for {
         result <- resp.AuthenticateUserResult
@@ -192,35 +193,28 @@ object SoapImport {
         res = if (securityCode == 0) Right(mpiVersion, jobSettingsArray) else Left(securityCode)
       } yield res
     } yield option
-    ret
   }
 
   type AuthenticateEither = Option[Either[Int, (String, ArrayOfGetJobSettingsResult)]]
   def persist(data: Future[AuthenticateEither]): Unit = {
     data foreach { opt =>
-      val either = opt getOrElse {
-        shutdown()
-        throw new RuntimeException("Should Never Happen")
-      }
+      opt foreach { either =>
+        val mpiVersionDao = MitekMpiVersionDao(coll)
+        /* error handling for successfull future with an error security code */
+        val tuple = either match {
+          case Right(tuple) => Some(tuple)
+          case Left(code) => println(s"error code: $code"); None
+        }
 
-      val mpiVersionDao = MitekMpiVersionDao(coll)
-      /* error handling for successfull future with an error security code */
-      val (version, availableJobs) = either match {
-        case Right(tuple) => tuple
-        case Left(code) => println(s"error code: $code"); ("", ArrayOfGetJobSettingsResult())
-      }
-
-      if (version != "") {
-        val checked = mpiVersionDao.findOneById(collKey) map { _.version == version }
-        checked match {
-          case Some(true) => ;
-          case Some(false) =>
-            coll.drop
-            MitekMpiVersion(collKey, version) |> mpiVersionDao.insert
-            availableJobs |> insert
-          case None =>
-            MitekMpiVersion(collKey, version) |> mpiVersionDao.insert
-            availableJobs |> insert
+        tuple foreach { case(version, availableJobs) =>
+          val checked = mpiVersionDao.findOneById(collKey) map { _.version == version }
+          checked match {
+            case Some(true) => ;
+            case Some(false) | None =>
+              //coll.drop
+              MitekMpiVersion(collKey, version) |> mpiVersionDao.insert
+              availableJobs |> insert
+          }
         }
       }
       shutdown()
@@ -240,8 +234,7 @@ object SoapImport {
       el <- seq
     } yield {
       val obj = MitekGetJobSettingsResult.fromScalaxbClass(el)
-
-      mitekJobSettingsResultDao.insert(obj)
+      mitekJobSettingsResultDao.save(obj)
     }
     println("inserted new data")
   }
@@ -254,13 +247,16 @@ object SoapImport {
   }
 }
 
-
 object XmlImport {
+  implicit class Piper[A](val x: A) extends AnyVal { def |>[B](f: A => B) = f(x) }
+  def apply(implicit client: MongoClient) = new XmlImport
+}
+
+class XmlImport(implicit mongoClient: MongoClient) {
   import xml._
   //println(mitekJobSettingsResultDao.find(
     //MitekGetJobSettingsResultQuery(name = Some("DRIVER_LICENSE_UT"))).toIterable)
 
-  val mongoClient: MongoClient = MongoClient()
   val coll: MongoCollection = mongoClient("test")("test")
 
   // useful method just in case
