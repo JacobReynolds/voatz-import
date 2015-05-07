@@ -3,7 +3,9 @@ lazy val commonSettings = Seq(
   scalaVersion  := "2.11.6"
 )
 
-ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+
+//ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
 
 scalacOptions ++= Seq("-deprecation", "-feature")
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
@@ -15,7 +17,8 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.2.1",
   "com.typesafe.akka" %% "akka-actor" % "2.3.9",
   "org.scala-lang.modules" %% "scala-async" % "0.9.2",
-  "org.slf4j" % "slf4j-simple" % "1.7.12"
+  "org.slf4j" % "slf4j-simple" % "1.7.12",
+  "com.typesafe.play" %% "play-ws" % "2.4.0-RC1"
 )
 
 import ScalaxbKeys._
