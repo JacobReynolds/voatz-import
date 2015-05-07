@@ -2,15 +2,17 @@ package org.voatz.yodlee
 
 import scala.language.implicitConversions
 import scala.language.postfixOps
-import language.experimental.macros
+import scala.concurrent.duration._
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.async.Async.{async, await}
+import akka.actor.ActorSystem
 
 import com.ning.http.client.AsyncHttpClientConfig
 import play.api.libs.ws._
 import play.api.libs.ws.ning._
 import play.api.libs.json._
-
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import org.slf4j.LoggerFactory
 
 import org.voatz.AsyncUtils._
 
@@ -43,9 +45,9 @@ object PreferenceInfo {
   implicit val reads = Json.reads[PreferenceInfo]
 }
 
-sealed trait AuthenticateCobrandResponseType
-case object InvalidCobrandCredentialsException extends AuthenticateCobrandResponseType
-case object CobrandUserAccountLockedException extends AuthenticateCobrandResponseType
+sealed trait YodleeAuthenticate
+case object InvalidCobrandCredentialsException extends YodleeAuthenticate
+case object CobrandUserAccountLockedException extends YodleeAuthenticate
 
 case class AuthenticateCobrandResponse(
   cobrandId: Int,
@@ -55,18 +57,24 @@ case class AuthenticateCobrandResponse(
   applicationId: String,
   cobrandConversationCredentials: Credentials,
   preferenceInfo: PreferenceInfo
-) extends AuthenticateCobrandResponseType
+) extends YodleeAuthenticate
 object AuthenticateCobrandResponse {
   implicit val reads = Json.reads[AuthenticateCobrandResponse]
 }
 
 case object YodleeWS extends App {
-  /* client code */
-  val voatzLogin = "sbCobvulcan"
-  val voatzPass = "e50e4dfa-407e-4713-9008-640be6f78fea"
-  authenticateCobrand(voatzLogin, voatzPass)
+  /* System for Timeout */
+  implicit val system = ActorSystem("timeoutSystem")
 
-  /* NB need to initialize WSClient because we're not starting a Play app
+  /* Logger */
+  val log = LoggerFactory.getLogger("org.voatz.yodlee.YodleeWS")
+
+  /* URL and Headers */
+  val yodleeURL = "https://rest.developer.yodlee.com/services/srest/restserver/v1.0"
+  val yodleeHdr1 = "Content-Type" -> "application/x-www-form-urlencoded; charset=\"utf-8\""
+  val yodleeHhd2 = "Connection" -> "close"
+
+  /* NB need to initialize a custom WSClient because we're not starting a Play app
    * http://carminedimascio.com/2015/02/how-to-use-the-play-ws-library-in-a-standalone-scala-app/
    */
   val client: WSClient = {
@@ -75,28 +83,30 @@ case object YodleeWS extends App {
     val builder = new AsyncHttpClientConfig.Builder(config)
     new NingWSClient(builder.build)
   }
-  val yodleeRestURL = "https://rest.developer.yodlee.com/services/srest/restserver/v1.0"
 
-  def authenticateCobrand(cobrandLogin: String, cobrandPassword: String): Unit = {
-    val url = yodleeRestURL + "/authenticate/coblogin"
+  /* Step 1 of the API */
+  def authenticateCobrand(cobrandLogin: String, cobrandPassword: String):
+    Future[YodleeAuthenticate] = {
 
-    val request = client.url(url).
-      withHeaders("Content-Type" -> "application/x-www-form-urlencoded; charset=\"utf-8\"",
-                  "Connection" -> "close")
-
+    val url = yodleeURL + "/authenticate/coblogin"
+    val request = client.url(url).withHeaders(yodleeHdr1, yodleeHhd2)
     val data = Map("cobrandLogin" -> Seq(cobrandLogin),
                    "cobrandPassword" -> Seq(cobrandPassword))
 
-    val response = request.post(data) withTimeout timeoutEx("request timeout")
+    def validateResponse(json: JsValue): YodleeAuthenticate = {
+      json.validate[AuthenticateCobrandResponse].fold( valid = identity,
+        invalid = _ => (json \\ "errorDetail") map (_.asOpt[String]) head match {
+          case Some("Invalid Cobrand Credentials") => InvalidCobrandCredentialsException
+          case Some("Cobrand User Account Locked") => CobrandUserAccountLockedException
+          case None | Some(_) => ??? // TODO should never happen
+        })
+    }
 
-    val result = response map { _.json.validate[AuthenticateCobrandResponse] }
-
-    result foreach { r => {
-      println(r)
-      client.close()
-      shutdown()
-    }}
-
+    async {
+      implicit val timeout: FiniteDuration = 900 millis
+      val resp = await { request.post(data) withTimeout timeoutEx("request timeout") }
+      validateResponse(resp.json)
+    }
   }
 
   def registerNewConsumer = ???
@@ -109,5 +119,26 @@ case object YodleeWS extends App {
 
   def shutdown(): Unit = {
     system.shutdown
+  }
+
+  /* Client Code */
+  val voatzLogin = "sbCobvulcan"
+  val voatzPass = "e50e4dfa-407e-4713-9008-640be6f78fea"
+
+  val authRes = authenticateCobrand(voatzLogin, voatzPass)
+
+  authRes foreach { r => {
+      log.info(r toString)
+      client.close()
+      shutdown()
+    }
+  }
+
+  for (exc <- authRes.failed) {
+    log.info(exc.getMessage)
+    client.close()
+    /* after shutdown is called once, cannot reinitialize the system in Utils ->
+     * object, not class */
+    shutdown()
   }
 }

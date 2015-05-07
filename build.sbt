@@ -4,10 +4,8 @@ lazy val commonSettings = Seq(
 )
 
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
-
-//ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
-
 scalacOptions ++= Seq("-deprecation", "-feature")
+
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 
 libraryDependencies ++= Seq(
