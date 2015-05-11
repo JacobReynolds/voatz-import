@@ -85,19 +85,6 @@ case class UserType(userTypeId: Int, userTypeName: String)
 object UserType {
   implicit val reads = Json.reads[UserType]
 }
-
-case object InvalidCobrandContextException extends YodleeLogin
-case object InvalidUserCredentialsException extends YodleeLogin
-case object UserUncertifiedException extends YodleeLogin
-case object UserAccountLockedException extends YodleeLogin
-case object UserUnregisteredException extends YodleeLogin
-case object UserStateChangedException extends YodleeLogin
-case object YodleeAttributeException extends YodleeLogin
-case object UserSuspendedException extends YodleeLogin
-case object MaxUserCountExceededException extends YodleeLogin
-case object UserGroupNotFoundException extends YodleeLogin
-case object IllegalArgumentValueException extends YodleeLogin
-case class YodleeLoginException(msg: String) extends YodleeLogin
 case class UserInfo(
   userContext: UserContext,
   lastLoginTime: Long,
@@ -111,6 +98,55 @@ case class UserInfo(
 object UserInfo {
   implicit val reads = Json.reads[UserInfo]
 }
+
+case object InvalidCobrandContextException extends YodleeLogin
+case object InvalidUserCredentialsException extends YodleeLogin
+case object UserUncertifiedException extends YodleeLogin
+case object UserAccountLockedException extends YodleeLogin
+case object UserUnregisteredException extends YodleeLogin
+case object UserStateChangedException extends YodleeLogin
+case object YodleeAttributeException extends YodleeLogin
+case object UserSuspendedException extends YodleeLogin
+case object MaxUserCountExceededException extends YodleeLogin
+case object UserGroupNotFoundException extends YodleeLogin
+case object IllegalArgumentValueException extends YodleeLogin
+case class YodleeLoginException(msg: String) extends YodleeLogin
+case object IllegalArgumentTypeException extends YodleeLogin /* Register step */
+case object UserNameExistsException extends YodleeLogin /* Register step */
+
+/* Register step */
+case class UserRegisterInfo(
+  userContext: UserContext,
+  lastLoginTime: Long,
+  loginCount: Int,
+  passwordRecovered: Boolean,
+  emailAddress: String,
+  loginName: String,
+  userId: Int
+) extends YodleeLogin
+object UserRegisterInfo {
+  implicit val reads = Json.reads[UserRegisterInfo]
+}
+
+/* Register Step */
+case class UserCredentials(
+  loginName: String,
+  password: String,
+  objectInstanceType: String)
+
+/* Register Step */
+case class UserProfile(
+  emailAddress: String,
+  firstName: String,
+  lastName: String,
+  middleInitial: String,
+  objectInstanceType: String,
+  address1: String,
+  address2: String,
+  city: String,
+  country: String
+)
+
 
 sealed trait YodleeServiceInfo  /* Step 3 */
 case class AutoRegistration(paperBillSuppressionType: String)
@@ -586,6 +622,58 @@ case object YodleeWS extends App {
     }
   }
 
+  def registerNewConsumer(cobSessionToken: String,
+                          userCredentials: UserCredentials,
+                          userProfile: UserProfile,
+                          userPreferences: Map[String, String]): Future[YodleeLogin] = {
+    val url = yodleeURL + "/jsonsdk/UserRegistration/register3"
+    val request = client.url(url).withHeaders(yodleeHdr1, yodleeHhd2)
+    val data = Map(
+      "cobSessionToken" -> Seq(cobSessionToken),
+
+    /*
+      "userCredentials" -> Seq(Map("loginName" -> Seq(loginName),
+                                    "password" -> Seq(password)))
+      */
+       "userCredentials.loginName" -> Seq(userCredentials.loginName),
+       "userCredentials.password" -> Seq(userCredentials.password),
+       "userCredentials.objectInstanceType" -> Seq(userCredentials.objectInstanceType),
+       "userProfile.emailAddress" -> Seq(userProfile.emailAddress),
+       //"userPreferences[0]" -> Seq() TODO: how to sent key/Value pair ASK
+       "userProfile.firstName" -> Seq(userProfile.firstName),
+       "userProfile.lastName" -> Seq(userProfile.lastName),
+       "userProfile.middleInitial" -> Seq(userProfile.middleInitial),
+       "userProfile.objectInstanceType" -> Seq(userProfile.objectInstanceType),
+       "userProfile.address1" -> Seq(userProfile.address1),
+       "userProfile.address2" -> Seq(userProfile.address2),
+       "userProfile.city" -> Seq(userProfile.city),
+       "userProfile.country" -> Seq(userProfile.country)
+     )
+
+    def validateResponse(json: JsValue): YodleeLogin = {
+      json.validate[UserRegisterInfo].fold(valid = identity,
+        invalid = _ => (json \\ "errorDetail") map (_.asOpt[String]) head match {
+          case Some("InvalidCobrandContextException") =>
+            InvalidCobrandContextException
+          case Some("InvalidUserCredentialsException") =>
+            InvalidUserCredentialsException
+          case Some("UserNameExistsException") => UserNameExistsException
+          case Some("IllegalArgumentTypeException") => IllegalArgumentTypeException
+          case Some("IllegalArgumentValueException") => IllegalArgumentValueException
+          case Some(msg) => YodleeLoginException(msg)
+          case None => YodleeLoginException("error not specified")
+        })
+    }
+
+    async {
+      implicit val timeout: FiniteDuration = 4000 millis
+      val resp = await {
+        request.post(data) withTimeout timeoutEx("getVerificationData request timeout")
+      }
+      validateResponse(resp.json)
+    }
+  }
+
   def getContentServiceInfo(cobToken: String, routingNumber: Int, notrim: Boolean):
     Future[YodleeServiceInfo] = {
 
@@ -608,16 +696,16 @@ case object YodleeWS extends App {
     }
 
     def validateResponse(json: JsValue): YodleeServiceInfo = {
-      val arg1 = json.validate[ContentServiceInfoSeq1].fold(invalidHandler(json), identity)
-      val arg2 = json.validate[ContentServiceInfoSeq2].fold(invalidHandler(json), identity)
-      val arg3 = json.validate[ContentServiceInfoSeq3].fold(invalidHandler(json), identity)
-      (arg1, arg2, arg3) match {
+      val seq1 = json.validate[ContentServiceInfoSeq1].fold(invalidHandler(json), identity)
+      val seq2 = json.validate[ContentServiceInfoSeq2].fold(invalidHandler(json), identity)
+      val seq3 = json.validate[ContentServiceInfoSeq3].fold(invalidHandler(json), identity)
+      (seq3, seq2, seq3) match {
         case (ex: YodleeServiceInfo, _, _) => ex
         case (_, ex: YodleeServiceInfo, _) => ex
         case (_, _, ex: YodleeServiceInfo) => ex
-        case _ => ContentServiceInfo(arg1.asInstanceOf[ContentServiceInfoSeq1],
-                                     arg2.asInstanceOf[ContentServiceInfoSeq2],
-                                     arg3.asInstanceOf[ContentServiceInfoSeq3])
+        case _ => ContentServiceInfo(seq1.asInstanceOf[ContentServiceInfoSeq1],
+                                     seq2.asInstanceOf[ContentServiceInfoSeq2],
+                                     seq3.asInstanceOf[ContentServiceInfoSeq3])
       }
     }
 
@@ -638,7 +726,7 @@ case object YodleeWS extends App {
 
     def validateResponse(json: JsValue): YodleeLoginForm = {
       log.info(json toString)
-      LoginForm("unimplemented yet")
+      LoginForm("unimplemented yet") // ASK
     }
 
     async {
@@ -648,7 +736,6 @@ case object YodleeWS extends App {
       }
       validateResponse(resp.json)
     }
-
   }
 
   def addItemAndStartVerification(cobToken: String, userSessionToken: String,
@@ -855,18 +942,17 @@ case object YodleeWS extends App {
     }
   }
 
-  def registerNewConsumer = ???
-
   /* TODOs:
    * 1. Factor out all Exceptions into YodleeException trait
    * 2. Introduce YodleeCommonException(msg: String) to handle unknown cases
    * 3. Return Future[Either[YodleeException, YodleeSomeResponse]] => scalaz
-   * 4. Decide what to do with LoginForms
+   * 4. Decide what to do with LoginForms Fix
    * 5. Introduce functions to convert input objects into data for POST req
    * 6. Factor out clients into common mkClient function
    * 7. Factor our async/await blocks
-   * 8. Factor out client into unit tests and general client test that goes
-   * through the whole verification cycle
+   * 8. Divide into multiple files: yodleeModels, userResponses(?), this
+   * 9. Factor out client into unit tests and general client test that goes
+   * through the whole verification cycle: test for FSM
    */
 
   def shutdown(by: String): Unit = {
