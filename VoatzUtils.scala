@@ -1,4 +1,4 @@
-package org.voatz
+package org.nimsim.voatz
 
 import scala.language.postfixOps
 import akka.pattern.after

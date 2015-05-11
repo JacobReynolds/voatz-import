@@ -1,4 +1,4 @@
-package org.voatz.yodlee
+package org.nimsim.voatz.yodlee
 
 import scala.language.implicitConversions
 import scala.language.postfixOps
