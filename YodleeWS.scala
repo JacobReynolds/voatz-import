@@ -26,17 +26,17 @@ object YodleeWS {
   /* Logger */
   val log = LoggerFactory.getLogger("org.voatz.yodlee.YodleeWS")
 
-  def mkWSRequest(subUrl: String): WSRequest = {
-    /* NB need to initialize a custom WSClient because we're not starting a Play app
-     * http://carminedimascio.com/2015/02/how-to-use-the-play-ws-library-in-a-standalone-scala-app/
-     */
-    val client: WSClient = {
-      /* NB DefaultClientConfig is called NingClientConfig in Play 2.4 */
-      val config = new NingAsyncHttpClientConfigBuilder(NingWSClientConfig()).build
-      val builder = new AsyncHttpClientConfig.Builder(config)
-      new NingWSClient(builder.build)
-    }
+  /* NB need to initialize a custom WSClient because we're not starting a Play app
+   * http://carminedimascio.com/2015/02/how-to-use-the-play-ws-library-in-a-standalone-scala-app/
+   */
+  val client: WSClient = {
+    /* NB DefaultClientConfig is called NingClientConfig in Play 2.4 */
+    val config = new NingAsyncHttpClientConfigBuilder(NingWSClientConfig()).build
+    val builder = new AsyncHttpClientConfig.Builder(config)
+    new NingWSClient(builder.build)
+  }
 
+  def mkWSRequest(subUrl: String): WSRequest = {
     val yodleeURL = "https://rest.developer.yodlee.com/services/srest/restserver/v1.0"
     val yodleeHdr1 = "Content-Type" -> "application/x-www-form-urlencoded; charset=\"utf-8\""
     val yodleeHhd2 = "Connection" -> "close"
@@ -46,7 +46,7 @@ object YodleeWS {
 
   def shutdown(by: String): Unit = {
     log.info(s"shutdown by $by")
-    //client.close()
+    client.close()
     system.shutdown
   }
 
@@ -191,22 +191,19 @@ object YodleeWS {
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeServiceInfo] = {
       val seq1 = json.validate[ContentServiceInfoSeq1].fold(
-        invalid = _ => invalidHandler(json),
-        valid => identity _
+        invalid = _ => invalidHandler(json), identity
       )
       val seq2 = json.validate[ContentServiceInfoSeq2].fold(
-        invalid = _ => invalidHandler(json),
-        valid => identity _
+        invalid = _ => invalidHandler(json), identity
       )
       val seq3 = json.validate[ContentServiceInfoSeq3].fold(
-        invalid = _ => invalidHandler(json),
-        valid => identity _
+        invalid = _ => invalidHandler(json), identity
       )
 
       (seq1, seq2, seq3) match {
         case (ex: YodleeException, _, _) => Left(ex)
         case (_, ex: YodleeException, _) => Left(ex)
-        case (_, _, ex:  YodleeException) => Left(ex)
+        case (_, _, ex: YodleeException) => Left(ex)
         case _ => Right(ContentServiceInfo(seq1.asInstanceOf[ContentServiceInfoSeq1],
                                            seq2.asInstanceOf[ContentServiceInfoSeq2],
                                            seq3.asInstanceOf[ContentServiceInfoSeq3]))
@@ -329,16 +326,13 @@ object YodleeWS {
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeMFA] = {
       val token = json.validate[MFARefreshInfoToken].fold(
-        valid = identity _,
-        invalid = _ => invalidHandler(json)
+        invalid = _ => invalidHandler(json), identity
       )
       val image = json.validate[MFARefreshInfoImage].fold(
-        valid = identity _,
-        invalid = _ => invalidHandler(json)
+        invalid = _ => invalidHandler(json), identity
       )
       val question = json.validate[MFARefreshInfoQuestion].fold(
-        valid = identity _,
-        invalid = _ =>invalidHandler(json)
+        invalid = _ =>invalidHandler(json), identity
       )
 
       (token, image, question) match {  // TODO: extremely klunky => fix
@@ -454,11 +448,10 @@ object YodleeWS {
 
 object Client extends App {
   /* TODOs:
-   * 3. Return Future[Either[YodleeException, YodleeSomeResponse]] => scalaz
-   * 4. Decide what to do with LoginForms - convert to case classes
-   * 5. Introduce functions to convert input objects into data for POST req
-   * 7. Factor our async/await blocks
-   * 9. Factor out client into unit tests and general client test that goes
+   * 1. Implement mkData conversions
+   * 2. Add models for LoginForms - convert to case classes
+   * 3. Factor our async/await blocks
+   * 4. Factor out client into unit tests and general client test that goes
    * through the whole verification cycle: test for FSM
    */
 
