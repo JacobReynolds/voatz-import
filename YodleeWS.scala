@@ -123,8 +123,8 @@ object YodleeWS {
 
   def registerNewConsumer(in: RegisterInput): Future[Either[YodleeException, YodleeRegister]] = {
     val request = mkWSRequest("/jsonsdk/UserRegistration/register3")
-    val data = mkData(in)
-    def mkData(in: RegisterInput): Map[String, Seq[String]] = ???
+    def mkData: Map[String, Seq[String]] = ???
+    val data = mkData
     /*
     Map(
        "cobSessionToken" -> Seq(cobSessionToken),
@@ -415,8 +415,8 @@ object YodleeWS {
 
   def getVerificationData(in: VerificationDataInput): Future[Either[YodleeException, YodleeVeriticationData]] = {
     val request = mkWSRequest("/jsonsdk/InstantVerificationDataService/getItemVerificationData")
-    val data = mkData
     def mkData = ???
+    val data = mkData
     /*
     Map("cobSessionToken" -> Seq(cobSessionToken),
                    "userSessionToken" -> Seq(userSessionToken),
@@ -539,9 +539,9 @@ object Client extends App {
     val loginResp = loginConsumer(LoginInput(token, username, password))
 
     loginResp map { _ match {
-        case resp: UserInfo =>
-          resp.userContext.conversationCredentials.sessionToken
-        case exp: YodleeLogin => throw new Exception(exp toString)
+        case Right(r @ (_: UserInfo)) =>
+          r.userContext.conversationCredentials.sessionToken
+        case Left(exp) => throw new Exception(exp toString)
       }
     }
   }
@@ -552,8 +552,8 @@ object Client extends App {
                                                                     dagRoutingNumber,
                                                                     true))
     serviceInfo map { _ match {
-        case resp: ContentServiceInfo => resp.seq1.contentServiceId
-        case exp: YodleeServiceInfo => throw new Exception(exp toString)
+        case Right(r @ (_: ContentServiceInfo)) => r.seq1.contentServiceId
+        case Left(exp) => throw new Exception(exp toString)
       }
     }
   }
@@ -561,8 +561,8 @@ object Client extends App {
   def loginFormStep(token: String, id: Int): Future[String] = {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
-        case resp: LoginForm => resp.dummy
-        case exp: YodleeLoginFormException => throw new Exception(exp toString)
+        case Right(r @(_: LoginForm)) => r.dummy
+        case Left(exp) => throw new Exception(exp toString)
       }
     }
   }
