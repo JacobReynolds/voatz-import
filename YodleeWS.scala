@@ -446,13 +446,17 @@ object YodleeWS {
 
   def getVerificationData(in: VerificationDataInput): Future[Either[YodleeException, YodleeVeriticationData]] = {
     val request = mkWSRequest("/jsonsdk/InstantVerificationDataService/getItemVerificationData")
-    def mkData = ???
-    val data = mkData
-    /*
-    Map("cobSessionToken" -> Seq(cobSessionToken),
-                   "userSessionToken" -> Seq(userSessionToken),
-                   "itemIds[0]" -> Seq(itemIds(0) toString)) //TODO factor our into a function
-    */
+    val data = {
+      val tokens = Map("cobSessionToken" -> Seq(in.cobSessionToken),
+                       "userSessionToken" -> Seq(in.userSessionToken))
+      val ixs = {
+        val xs = for (i <- 0 until in.itemIds.size; item = in.itemIds(i) ) yield
+          Map(s"itemIds[$i]" -> Seq(item toString))
+        (Map.empty[String, Seq[String]] /: xs) {_ ++ _}
+      }
+      tokens ++ ixs
+    }
+
     def invalidHandler(json: JsValue): YodleeException = {
       json.validate[YodleeException].fold(
         valid = identity,

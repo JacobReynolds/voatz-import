@@ -34,7 +34,7 @@ case class StartVerificationInput(
   accountNumber: Option[Int],
   routingNumber: Option[Int],
   enclosedType: String,
-  credentialFields: CredentialFields
+  credentialFields: List[CredentialFields]
 ) extends YodleePost
 case class GetMFAInput(
   cobSessionToken: String,
@@ -51,11 +51,36 @@ case class VerificationDataInput(
   itemIds: List[Int]
 )
 
-case class UserResponse(
-  objectInstanceType: String,
-  token: String,
-  data: Option[Any]
+sealed trait MFAUserResponse
+object MFAInstanceType extends Enumeration {
+  type MFAInstanceType = Value
+  val MFAToken = Value("com.yodlee.core.mfarefresh.MFATokenResponse")
+  val MFAQA = Value("com.yodlee.core.mfarefresh.MFAQuesAnsResponse")
+  val MFAImage = Value("com.yodlee.core.mfarefresh.MFAImageResponse")
+}
+import MFAInstanceType._
+
+case class QA(
+  answer: String,
+  answerFieldType: String,
+  metaData: String,
+  question: String,
+  questionFieldType: String
 )
+sealed trait UserResponse
+case class MFAQAResponse(
+  objectInstanceType: String,
+  quesAnsDetailArray: List[QA]
+) extends UserResponse
+case class MFAImageResponse(
+  objectInstanceType: String,
+  imageString: String
+) extends UserResponse
+case class MFATokenResponse(
+  objectInstanceType: String,
+  token: String
+) extends UserResponse
+
 case class UserCredentials(
   loginName: String,
   password: String,
@@ -73,12 +98,13 @@ case class UserProfile(
   country: Option[String]
 )
 
-case class FieldType(typeName: String) // TODO: Replace with ENUM
-/*
+case class FieldType (
+  typeName: String
+)
 object FieldType {
   implicit val reads = Json.reads[FieldType]
 }
-*/
+
 case class CredentialFields(
   displayName: String,
   fieldType: FieldType,
@@ -93,8 +119,17 @@ case class CredentialFields(
 )
 
 /* all Exceptions */
-sealed trait YodleeException
-case class YodleeCommonException(msg: String) extends YodleeException
+case class YodleeException(
+  errorOccurred: String,
+  exceptionType: String,
+  referenceCode: String,
+  message: String
+)
+object YodleeException {
+  implicit val reads = Json.reads[YodleeException]
+}
+
+/*
 case object InvalidCobrandCredentialsException extends YodleeException
 case object CobrandUserAccountLockedException extends YodleeException
 case object InvalidCobrandContextException extends YodleeException
@@ -118,7 +153,7 @@ case object IAVDataRequestNotSupportedException extends YodleeException
 case object InvalidItemException extends YodleeException
 case object MFARefreshException extends YodleeException
 case object ContentServiceNotFoundException extends YodleeException
-
+*/
 /* Response Models for all steps */
 case class CurrencyNotationType(currencyNotationType: String)
 object CurrencyNotationType {
@@ -398,8 +433,101 @@ object ContentServiceInfo {
 }
 
 /* Step 4 */
+case class ConjunctionOp(
+  conjuctionOp: Int
+)
+object ConjunctionOp {
+  implicit val reads = Json.reads[ConjunctionOp]
+}
+case class SimpleComponent(
+  valueIdentifier: String,
+  valueMask: String,
+  fieldType: FieldType,
+  size: Int,
+  maxlength: Int,
+  name: String,
+  displayName: String,
+  isEditable: Boolean,
+  isOptional: Boolean,
+  isEscaped: Boolean,
+  helpText: String,
+  isOptionalMFA: Boolean,
+  isMFA: Boolean
+) extends Component
+object SimpleComponent{
+  implicit val simpleReads = Json.reads[SimpleComponent]
+}
+
+case class FieldComponent(
+  defaultValues: List[String],
+  values: List[String],
+  validValues: List[String],
+  displayValidValues: List[String],
+  valueIdentifiers: List[String],
+  valueMasks: List[String],
+  fieldTypes: List[FieldType],
+  validationRules: List[String],
+  sizes: List[Int],
+  maxlengths: List[Int],
+  userProfileMappingExpressions: List[String],
+  name: String,
+  displayName: String,
+  isEditable: Boolean,
+  isOptional: Boolean,
+  isEscaped: Boolean,
+  helpText: String,
+  isOptionalMFA: Boolean,
+  isMFA: Boolean
+) extends Component
+object FieldComponent {
+  implicit val fieldReads = Json.reads[FieldComponent]
+}
+case class DropDownComponent(
+  validValues: List[String],
+  displayValidValues: List[String],
+  valueIdentifier: String,
+  valueMask: String,
+  fieldType: FieldType,
+  size: Int,
+  maxlength: Int,
+  name: String,
+  displayName: String,
+  isEditable: Boolean,
+  isOptional: Boolean,
+  isEscaped: Boolean,
+  helpText: String,
+  isOptionalMFA: Boolean,
+  isMFA: Boolean
+) extends Component
+object DropDownComponent {
+  implicit val dropDownReads = Json.reads[DropDownComponent]
+}
+sealed trait Component
+object Component {
+  import FieldInfoListComponent._
+  import DropDownComponent._
+  import SimpleComponent._
+  import FieldComponent._
+  implicit val reads = simpleReads.map(identity[Component]) orElse
+                       fieldReads.map(identity[Component]) orElse
+                       dropDownReads.map(identity[Component]) orElse
+                       infoListReads.map(identity[Component])
+
+}
+case class FieldInfoListComponent(fieldInfoList: List[Component]) extends Component
+object FieldInfoListComponent {
+  implicit val infoListReads: Reads[FieldInfoListComponent] = Json.reads[FieldInfoListComponent]
+}
+
 sealed trait YodleeLoginForm
-case class LoginForm(dummy: String) extends YodleeLoginForm
+case class LoginForm(
+  conjunctionOp: ConjunctionOp,
+  componentList: List[Component],
+  defaultHelpText: String
+) extends YodleeLoginForm
+object LoginForm {
+  implicit val reads = Json.reads[LoginForm]
+}
 
 /* Step 5 */
 case class RefreshStatus(status: Int) // TODO: replace Int with ENUM
@@ -498,8 +626,6 @@ case class MFAPutResponse(response: String) extends YodleeMFA
 object MFAPutResponse {
   implicit val reads = Json.reads[MFAPutResponse]
 }
-
-case class MFAUserResponse(dummy: String)
 
 /* Step 7 */
 case class RequestType(name: String)
