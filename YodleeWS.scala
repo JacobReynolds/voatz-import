@@ -225,8 +225,20 @@ object YodleeWS {
                    "contentServiceId" -> Seq(in.contentServiceId toString))
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeLoginForm] = {
-      log.info(json toString)
-      Right(LoginForm("unimplemented yet")) // ASK
+      json.validate[LoginForm].fold(
+        valid = Right(_),
+        invalid = _ => Left(invalidHandler(json))
+      )
+    }
+
+    def invalidHandler(json: JsValue): YodleeException = {
+      (json \\ "errorDetail") map (_.asOpt[String]) head match {
+        case Some("InvalidCobrandConversationCredentialsException") =>
+          InvalidCobrandConversationCredentialsException
+        case Some("ContentServiceNotFoundException") => ContentServiceNotFoundException
+        case Some(msg) => YodleeCommonException(msg)
+        case None => YodleeCommonException("error not specified")
+      }
     }
 
     async {
@@ -449,9 +461,8 @@ object YodleeWS {
 object Client extends App {
   /* TODOs:
    * 1. Implement mkData conversions
-   * 2. Add models for LoginForms - convert to case classes
-   * 3. Factor our async/await blocks
-   * 4. Factor out client into unit tests and general client test that goes
+   * 2. Factor our async/await blocks
+   * 3. Factor out client into unit tests and general client test that goes
    * through the whole verification cycle: test for FSM
    */
 
@@ -554,7 +565,7 @@ object Client extends App {
   def loginFormStep(token: String, id: Int): Future[String] = {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
-        case Right(r @(_: LoginForm)) => r.dummy
+        case Right(r @(_: LoginForm)) => log.info(r toString); r.defaultHelpText
         case Left(exp) => throw new Exception(exp toString)
       }
     }
