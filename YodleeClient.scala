@@ -1,5 +1,6 @@
 package org.nimsim.voatz.yodlee
 
+import scala.language.postfixOps
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -10,10 +11,10 @@ object Client extends App {
   def start: Unit = {
 
     /* step 1 */
-    val cobToken = {
+    def cobToken = {
       val auth = authenticateStep
       for (exc <- auth.failed) {
-        log.info(exc.getMessage)
+        log.info("Step 1 Exception: " + exc.getMessage)
         shutdown("Step1")
       }
       auth
@@ -23,36 +24,36 @@ object Client extends App {
     val userToken = cobToken flatMap { t =>
       val userSessionToken = loginStep(t)
       for (exc <- userSessionToken.failed) {
-        log.info(exc.getMessage)
+        log.info("Step 2b Exception: " + exc.getMessage)
         shutdown("Step 2b")
       }
       userSessionToken
     }
 
     /* step3 */
-    val serviceID = cobToken flatMap { t =>
+    def serviceID = cobToken flatMap { t =>
       val contentServiceId = serviceInfoStep(t)
       for (exc <- contentServiceId.failed) {
-        log.info(exc.getMessage)
+        log.info("Step 3 Exception: " + exc.getMessage)
         shutdown("Step 3")
       }
       contentServiceId
     }
 
-    val loginFormVal: Future[String] = {
+    def loginFormVal: Future[String] = {
       val form = (for {
         token: String <- cobToken
         id: Int <- serviceID
       } yield loginFormStep(token, id)) flatMap(identity)
 
       for (exc <- form.failed) {
-        log.info(exc.getMessage)
+        log.info("Step 4 Exception: " + exc.getMessage)
         shutdown("Step 4")
       }
       form
     }
 
-    val refreshTuple = {
+    def refreshTuple = {
       val tuple = (for {
         token <- cobToken
         userToken <- userToken
@@ -60,13 +61,13 @@ object Client extends App {
       } yield startVerificationStep(token, userToken, id)) flatMap(identity)
 
       for (exc <- tuple.failed) {
-        log.info(exc.getMessage)
+        log.info("Step 5 Exception: " + exc.getMessage)
         shutdown("Step 5")
       }
       tuple
     }
 
-    val getMFA = {
+    def getMFA: Future[Boolean] = {
       val infoObj = (for {
         token <- cobToken
         userToken <- userToken
@@ -74,9 +75,14 @@ object Client extends App {
         if st == 8
       } yield getMFAStep(token, userToken, id)) flatMap(identity)
 
+      for {
+        retry <- infoObj
+        if retry == true
+      } yield getMFA
+
       for (exc <- infoObj.failed) {
-        log.info(exc.getMessage)
-        shutdown("Step 5")
+        log.info("Step 6 Exception: " + exc.getMessage)
+        shutdown("Step 6")
       }
       infoObj
     }
@@ -85,9 +91,8 @@ object Client extends App {
     userToken foreach { ut => log.info(s"userToken = $ut") }
     serviceID foreach { id => log.info(s"contentServiceId = $id") }
     loginFormVal foreach { v => log.info(s"form = $v") }
-    refreshTuple map {
-      case(st, id) => log.info(s"$st and $id"); st -> id
-    } andThen { case _ => shutdown("Step Final") }
+    refreshTuple foreach { case(st, id) => log.info(s"$st and $id") }
+    getMFA map { r => log.info(s"$r") } andThen { case _ => shutdown("Step Final") }
 
   }
 
@@ -117,7 +122,7 @@ object Client extends App {
   }
 
   def serviceInfoStep(token: String): Future[Int] = {
-    val dagRoutingNumber = 999999989
+    val dagRoutingNumber = 910080000
     val serviceInfo =
       getContentServiceInfo(ContentServiceInfoInput(token, dagRoutingNumber, true))
 
@@ -142,12 +147,16 @@ object Client extends App {
                             serviceId: Int): Future[(Int, Int)] = {
     val refreshStatus = startVerification(
       StartVerificationInput(token, userToken, serviceId, Some(503-1123001),
-        Some(999999989), "com.yodlee.common.FieldInfoSingle", List(
+        Some(910080000), "com.yodlee.common.FieldInfoSingle", List(
         CredentialFields("USLoginId", FieldType("TEXT"), 22059, true, 40,
           "LOGIN", 20, "dataservice.bank1", "LOGIN", "LOGIN_FIELD"),
+
+        CredentialFields("Password", FieldType("IF_PASSWORD"), 92429, true,
+          40, "PASSWORD", 20, "bank1", "PASSWORD", "LOGIN_FIELD"))))
+        /* Simple DAG
         CredentialFields("USPassword", FieldType("IF_PASSWORD"), 22058, true,
           40, "PASSWORD1", 20, "bank1", "PASSWORD1", "LOGIN_FIELD"))))
-
+        */
     refreshStatus map { _ match {
         case Right(r: IAVRefreshStatus) => (r.refreshStatus.status, r.itemId)
         case Left(e) => throw new Exception(e.message)
@@ -158,9 +167,9 @@ object Client extends App {
   def getMFAStep(token: String, userToken: String, itemId: Int): Future[Boolean] = {
     val refreshInfo = getMFAResponse(GetMFAInput(token, userToken, itemId))
     refreshInfo map { _ match {
-        case Right(r: MFARefreshInfoToken) => ???
-        case Right(r: MFARefreshInfoImage) => ???
-        case Right(r: MFARefreshInfoQuestion) => ???
+        case Right(r: MFARefreshInfoToken) => log.info("TokenMFA: " + r); r.retry
+        case Right(r: MFARefreshInfoImage) => log.info("ImageMFA" + r); r.retry
+        case Right(r: MFARefreshInfoQuestion) => log.info("QAMFA" + r); r.retry
         case Left(e) => throw new Exception(e.message)
       }
     }

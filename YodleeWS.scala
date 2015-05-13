@@ -233,6 +233,7 @@ object YodleeWS {
                    "contentServiceId" -> Seq(in.contentServiceId toString))
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeLoginForm] = {
+      log.info(Json.prettyPrint(json))
       json.validate[LoginForm].fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
@@ -307,7 +308,7 @@ object YodleeWS {
     }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeIAVRefreshStatus] = {
-      log.info(json toString)
+      log.info(Json.prettyPrint(json))
       json.validate[IAVRefreshStatus].fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
@@ -398,7 +399,7 @@ object YodleeWS {
     }
 
     async {
-      implicit val timeout: FiniteDuration = 4000 millis
+      implicit val timeout: FiniteDuration = 6000 millis
       val resp = await {
         request.post(data) withTimeout timeoutEx("getMFA request timeout")
       }
