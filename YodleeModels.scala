@@ -622,9 +622,9 @@ object MFARefreshInfoQuestion {
 }
 
 /* Step 6b */
-case class MFAPutResponse(response: String) extends YodleeMFA
-object MFAPutResponse {
-  implicit val reads = Json.reads[MFAPutResponse]
+case class YodleeMFAPutResponse(response: String)
+object YodleeMFAPutResponse {
+  implicit val reads = Json.reads[YodleeMFAPutResponse]
 }
 
 /* Step 7 */

@@ -66,6 +66,21 @@ object Client extends App {
       tuple
     }
 
+    val getMFA = {
+      val infoObj = (for {
+        token <- cobToken
+        userToken <- userToken
+        (st, id) <- refreshTuple
+        if st == 8
+      } yield getMFAStep(token, userToken, id)) flatMap(identity)
+
+      for (exc <- infoObj.failed) {
+        log.info(exc.getMessage)
+        shutdown("Step 5")
+      }
+      infoObj
+    }
+
     cobToken foreach { tn => log.info(s"cobToken = $tn") }
     userToken foreach { ut => log.info(s"userToken = $ut") }
     serviceID foreach { id => log.info(s"contentServiceId = $id") }
@@ -83,7 +98,7 @@ object Client extends App {
 
     /* get sessionToken or the exception */
     authRes map { _ match {
-      case Right(r @ (_:AuthenticateCobrand)) => r.cobrandConversationCredentials.sessionToken
+      case Right(r: AuthenticateCobrand) => r.cobrandConversationCredentials.sessionToken
       case Left(e) => throw new Exception(e.message)
       }
     }
@@ -95,7 +110,7 @@ object Client extends App {
     val loginResp = loginConsumer(LoginInput(token, username, password))
 
     loginResp map { _ match {
-        case Right(r @ (_:UserInfo)) => r.userContext.conversationCredentials.sessionToken
+        case Right(r: UserInfo) => r.userContext.conversationCredentials.sessionToken
         case Left(e) => throw new Exception(e.message)
       }
     }
@@ -107,7 +122,7 @@ object Client extends App {
       getContentServiceInfo(ContentServiceInfoInput(token, dagRoutingNumber, true))
 
     serviceInfo map { _ match {
-        case Right(r @ (_:ContentServiceInfo)) => r.seq1.contentServiceId
+        case Right(r: ContentServiceInfo) => r.seq1.contentServiceId
         case Left(e) => throw new Exception(e.message)
       }
     }
@@ -116,7 +131,7 @@ object Client extends App {
   def loginFormStep(token: String, id: Int): Future[String] = {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
-        case Right(r @(_:LoginForm)) => r.defaultHelpText
+        case Right(r: LoginForm) => r.defaultHelpText
         case Left(e) => throw new Exception(e.message)
       }
     }
@@ -134,7 +149,18 @@ object Client extends App {
           40, "PASSWORD1", 20, "bank1", "PASSWORD1", "LOGIN_FIELD"))))
 
     refreshStatus map { _ match {
-        case Right(r @(_: IAVRefreshStatus)) => (r.refreshStatus.status, r.itemId)
+        case Right(r: IAVRefreshStatus) => (r.refreshStatus.status, r.itemId)
+        case Left(e) => throw new Exception(e.message)
+      }
+    }
+  }
+
+  def getMFAStep(token: String, userToken: String, itemId: Int): Future[Boolean] = {
+    val refreshInfo = getMFAResponse(GetMFAInput(token, userToken, itemId))
+    refreshInfo map { _ match {
+        case Right(r: MFARefreshInfoToken) => ???
+        case Right(r: MFARefreshInfoImage) => ???
+        case Right(r: MFARefreshInfoQuestion) => ???
         case Left(e) => throw new Exception(e.message)
       }
     }

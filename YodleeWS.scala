@@ -407,7 +407,7 @@ object YodleeWS {
 
   }
 
-  def putMFAResponse(in: PutMFAInput): Future[Either[YodleeException, YodleeMFA]] = {
+  def putMFAResponse(in: PutMFAInput): Future[Either[YodleeException, YodleeMFAPutResponse]] = {
     val request = mkWSRequest("/jsonsdk/Refresh/putMFAResponse")
     val data: Map[String, Seq[String]] = {
       val tokens = Map(
@@ -436,8 +436,8 @@ object YodleeWS {
       tokens ++ respMap
     }
 
-    def validateResponse(json: JsValue): Either[YodleeException, YodleeMFA] = {
-      json.validate[MFAPutResponse].fold(
+    def validateResponse(json: JsValue): Either[YodleeException, YodleeMFAPutResponse] = {
+      json.validate[YodleeMFAPutResponse].fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
