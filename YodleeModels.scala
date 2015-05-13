@@ -3,6 +3,22 @@ package org.nimsim.voatz.yodlee
 import play.api.libs.json._
 
 sealed trait YodleePost /* inputs to all methods */
+sealed trait Component
+sealed trait FieldInfo
+sealed trait MFAUserResponse
+sealed trait UserResponse
+
+sealed trait YodleeException
+sealed trait YodleeResponse
+sealed trait YodleeAuthenticate extends YodleeResponse
+sealed trait YodleeRegister extends YodleeResponse
+sealed trait YodleeLogin extends YodleeResponse
+sealed trait YodleeServiceInfo extends YodleeResponse
+sealed trait YodleeLoginForm extends YodleeResponse
+sealed trait YodleeIAVRefreshStatus extends YodleeResponse
+sealed trait YodleeMFA extends YodleeResponse
+sealed trait YodleeVeriticationData extends YodleeResponse
+
 case class AuthenticateInput(
   cobrandLogin: String,
   cobrandPassword: String
@@ -51,7 +67,6 @@ case class VerificationDataInput(
   itemIds: List[Int]
 )
 
-sealed trait MFAUserResponse
 object MFAInstanceType extends Enumeration {
   type MFAInstanceType = Value
   val MFAToken = Value("com.yodlee.core.mfarefresh.MFATokenResponse")
@@ -67,7 +82,6 @@ case class QA(
   question: String,
   questionFieldType: String
 )
-sealed trait UserResponse
 case class MFAQAResponse(
   objectInstanceType: String,
   quesAnsDetailArray: List[QA]
@@ -119,14 +133,26 @@ case class CredentialFields(
 )
 
 /* all Exceptions */
-case class YodleeException(
+case class YodleeExtendedException(
   errorOccurred: String,
   exceptionType: String,
   referenceCode: String,
   message: String
-)
+) extends YodleeException
+object YodleeExtendedException {
+  implicit val extendedReads = Json.reads[YodleeExtendedException]
+}
+
+case class YodleeSimpleException(message: String) extends YodleeException
+object YodleeSimpleException {
+  implicit val simpleReads = Json.reads[YodleeSimpleException]
+}
+
 object YodleeException {
-  implicit val reads = Json.reads[YodleeException]
+  import YodleeSimpleException._
+  import YodleeExtendedException._
+  implicit val reads = simpleReads.map(identity[YodleeException]) orElse
+                       extendedReads.map(identity[YodleeException])
 }
 
 /*
@@ -154,6 +180,7 @@ case object InvalidItemException extends YodleeException
 case object MFARefreshException extends YodleeException
 case object ContentServiceNotFoundException extends YodleeException
 */
+
 /* Response Models for all steps */
 case class CurrencyNotationType(currencyNotationType: String)
 object CurrencyNotationType {
@@ -185,7 +212,6 @@ object ConversationCredentials {
 }
 
 
-sealed trait YodleeAuthenticate /* Step 1 */
 case class AuthenticateCobrand(
   cobrandId: Int,
   channelId: Int,
@@ -215,7 +241,6 @@ object UserContext {
   implicit val reads = Json.reads[UserContext]
 }
 
-sealed trait YodleeRegister /* Step 2a */
 case class UserRegisterInfo(
   userContext: UserContext,
   lastLoginTime: Long,
@@ -234,7 +259,6 @@ object UserType {
   implicit val reads = Json.reads[UserType]
 }
 
-sealed trait YodleeLogin /* Step 2b */
 case class UserInfo(
   userContext: UserContext,
   lastLoginTime: Long,
@@ -363,7 +387,6 @@ object ContentServiceInfoSeq3 {
   implicit val reads = Json.reads[ContentServiceInfoSeq3]
 }
 
-sealed trait YodleeServiceInfo  /* Step 3 */
 case class ContentServiceInfo(
   seq1: ContentServiceInfoSeq1,
   seq2: ContentServiceInfoSeq2,
@@ -502,7 +525,6 @@ case class DropDownComponent(
 object DropDownComponent {
   implicit val dropDownReads = Json.reads[DropDownComponent]
 }
-sealed trait Component
 object Component {
   import FieldInfoListComponent._
   import DropDownComponent._
@@ -512,14 +534,13 @@ object Component {
                        fieldReads.map(identity[Component]) orElse
                        dropDownReads.map(identity[Component]) orElse
                        infoListReads.map(identity[Component])
-
 }
+
 case class FieldInfoListComponent(fieldInfoList: List[Component]) extends Component
 object FieldInfoListComponent {
   implicit val infoListReads: Reads[FieldInfoListComponent] = Json.reads[FieldInfoListComponent]
 }
 
-sealed trait YodleeLoginForm
 case class LoginForm(
   conjunctionOp: ConjunctionOp,
   componentList: List[Component],
@@ -535,7 +556,6 @@ object RefreshStatus {
   implicit val reads = Json.reads[RefreshStatus]
 }
 
-sealed trait YodleeIAVRefreshStatus
 case class IAVRefreshStatus(
   refreshStatus: RefreshStatus,
   itemId: Int
@@ -557,7 +577,6 @@ object QAValues {
   implicit val reads = Json.reads[QAValues]
 }
 
-sealed trait FieldInfo
 case class SecurityQuestionFieldInfo(
   questionAndAnswerValues: List[QAValues],
   numOfMandatoryQuestions: Int
@@ -587,7 +606,6 @@ case class ImageFieldInfo(
 object ImageFieldInfo {
   implicit val reads = Json.reads[ImageFieldInfo]
 }
-sealed trait YodleeMFA
 case class MFARefreshInfoToken(
   isMessageAvailable: Boolean,
   fieldInfo: TokenFieldInfo,
@@ -683,7 +701,6 @@ object AccountData {
   implicit val reads = Json.reads[AccountData]
 }
 
-sealed trait YodleeVeriticationData
 case class ItemVerificationData(items: List[String]) extends YodleeVeriticationData
 object ItemVerificationData {
   implicit val reads = Json.reads[ItemVerificationData]

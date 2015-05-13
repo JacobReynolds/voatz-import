@@ -3,6 +3,7 @@ package org.nimsim.voatz.yodlee
 import scala.language.postfixOps
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{ Try, Success, Failure }
 
 object Client extends App {
   import YodleeWS._
@@ -75,17 +76,15 @@ object Client extends App {
         if st == 8
       } yield getMFAStep(token, userToken, id)) flatMap(identity)
 
-      for {
-        retry <- infoObj
-        if retry == true
-      } yield getMFA
-
       for (exc <- infoObj.failed) {
         log.info("Step 6 Exception: " + exc.getMessage)
         shutdown("Step 6")
       }
       infoObj
     }
+
+    def putMFA: Future[Boolean] = ???
+    def verifyData: Future[Int] = ???
 
     cobToken foreach { tn => log.info(s"cobToken = $tn") }
     userToken foreach { ut => log.info(s"userToken = $ut") }
@@ -102,9 +101,10 @@ object Client extends App {
     val authRes = authCobrand(AuthenticateInput(voatzLogin, voatzPass))
 
     /* get sessionToken or the exception */
-    authRes map { _ match {
-      case Right(r: AuthenticateCobrand) => r.cobrandConversationCredentials.sessionToken
-      case Left(e) => throw new Exception(e.message)
+    authRes map {
+      _ match {
+        case Right(r: AuthenticateCobrand) => r.cobrandConversationCredentials.sessionToken
+        case Left(e: YodleeSimpleException) => throw new Exception(e.message)
       }
     }
   }
@@ -116,7 +116,7 @@ object Client extends App {
 
     loginResp map { _ match {
         case Right(r: UserInfo) => r.userContext.conversationCredentials.sessionToken
-        case Left(e) => throw new Exception(e.message)
+        case Left(e: YodleeSimpleException) => throw new Exception(e.message)
       }
     }
   }
@@ -128,7 +128,7 @@ object Client extends App {
 
     serviceInfo map { _ match {
         case Right(r: ContentServiceInfo) => r.seq1.contentServiceId
-        case Left(e) => throw new Exception(e.message)
+        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
       }
     }
   }
@@ -137,7 +137,7 @@ object Client extends App {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
         case Right(r: LoginForm) => r.defaultHelpText
-        case Left(e) => throw new Exception(e.message)
+        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
       }
     }
   }
@@ -159,7 +159,7 @@ object Client extends App {
         */
     refreshStatus map { _ match {
         case Right(r: IAVRefreshStatus) => (r.refreshStatus.status, r.itemId)
-        case Left(e) => throw new Exception(e.message)
+        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
       }
     }
   }
@@ -167,10 +167,10 @@ object Client extends App {
   def getMFAStep(token: String, userToken: String, itemId: Int): Future[Boolean] = {
     val refreshInfo = getMFAResponse(GetMFAInput(token, userToken, itemId))
     refreshInfo map { _ match {
-        case Right(r: MFARefreshInfoToken) => log.info("TokenMFA: " + r); r.retry
+        case Right(r: MFARefreshInfoToken) => log.info("TokenMFA: " + r);r.retry
         case Right(r: MFARefreshInfoImage) => log.info("ImageMFA" + r); r.retry
-        case Right(r: MFARefreshInfoQuestion) => log.info("QAMFA" + r); r.retry
-        case Left(e) => throw new Exception(e.message)
+        case Right(r: MFARefreshInfoQuestion) => log.info("QAMFA " + r); r.retry
+        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
       }
     }
   }

@@ -50,9 +50,17 @@ object YodleeWS {
     system.shutdown
   }
 
+  def invalidHandler(json: JsValue)(implicit from: String): YodleeException = {
+    json.validate[YodleeException].fold(
+      valid = identity,
+      invalid = _ => YodleeSimpleException(s"$from: ${Json.prettyPrint(json)}")
+    )
+  }
+
   /* Step 1 of the API */
   def authCobrand(in: AuthenticateInput): Future[Either[YodleeException, YodleeAuthenticate]] = {
-    val request = mkWSRequest("/authenticate/coblogin")
+    implicit val authenticateSubUrl = "/authenticate/coblogin"
+    val request = mkWSRequest(authenticateSubUrl)
     val data = Map("cobrandLogin" -> Seq(in.cobrandLogin),
                    "cobrandPassword" -> Seq(in.cobrandPassword))
 
@@ -61,13 +69,6 @@ object YodleeWS {
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
-    }
-
-    def invalidHandler(json: JsValue): YodleeException = {
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some(msg) => YodleeException("", "", "", msg)
-        case None => YodleeException("", "", "", "error not specified")
-      }
     }
 
     async {
@@ -80,7 +81,8 @@ object YodleeWS {
   }
 
   def loginConsumer(in: LoginInput): Future[Either[YodleeException, YodleeLogin]] = {
-    val request = mkWSRequest("/authenticate/login")
+    implicit val loginSubUrl = "/authenticate/login"
+    val request = mkWSRequest(loginSubUrl)
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                    "login" -> Seq(in.login),
                    "password" -> Seq(in.password))
@@ -90,13 +92,6 @@ object YodleeWS {
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
-    }
-
-    def invalidHandler(json: JsValue) : YodleeException = {
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some(msg) => YodleeException("", "", "", msg)
-        case None => YodleeException("", "", "", "error not specified")
-      }
     }
 
     async {
@@ -109,7 +104,8 @@ object YodleeWS {
   }
 
   def registerNewConsumer(in: RegisterInput): Future[Either[YodleeException, YodleeRegister]] = {
-    val request = mkWSRequest("/jsonsdk/UserRegistration/register3")
+    implicit val registerSubUrl = "/jsonsdk/UserRegistration/register3"
+    val request = mkWSRequest(registerSubUrl)
     val data = {
       val cred = Map(
        "cobSessionToken" -> Seq(in.cobSessionToken),
@@ -167,13 +163,6 @@ object YodleeWS {
       )
     }
 
-    def invalidHandler(json: JsValue): YodleeException = {
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some(msg) => YodleeException("", "", "", msg)
-        case None => YodleeException("", "", "", "error not specified")
-      }
-    }
-
     async {
       implicit val timeout: FiniteDuration = 4000 millis
       val resp = await {
@@ -184,18 +173,11 @@ object YodleeWS {
   }
 
   def getContentServiceInfo(in: ContentServiceInfoInput): Future[Either[YodleeException, YodleeServiceInfo]] = {
-    val request = mkWSRequest("/jsonsdk/RoutingNumberService/getContentServiceInfoByRoutingNumber")
-
+    implicit val serviceInfoSubUrl = "/jsonsdk/RoutingNumberService/getContentServiceInfoByRoutingNumber"
+    val request = mkWSRequest(serviceInfoSubUrl)
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                    "routingNumber" -> Seq(in.routingNumber toString),
                    "notrim" -> Seq(in.notrim toString))
-
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-    }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeServiceInfo] = {
       val seq1 = json.validate[ContentServiceInfoSeq1].fold(
@@ -228,32 +210,23 @@ object YodleeWS {
   }
 
   def getLoginForm(in: LoginFormInput): Future[Either[YodleeException, YodleeLoginForm]] = {
-    val request = mkWSRequest("/jsonsdk/ItemManagement/getLoginFormForContentService")
+    implicit val loginFormSubUrl = "/jsonsdk/ItemManagement/getLoginFormForContentService"
+    val request = mkWSRequest(loginFormSubUrl)
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                    "contentServiceId" -> Seq(in.contentServiceId toString))
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeLoginForm] = {
-      log.info(Json.prettyPrint(json))
+      def invalidHandler(json: JsValue): YodleeException = {
+        json.validate[YodleeException].fold(
+          valid = identity,
+          invalid = _ => YodleeSimpleException(Json.prettyPrint(json))
+        )
+      }
+
       json.validate[LoginForm].fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
-    }
-
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-    /*
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        //case Some("Invalid Cobrand Conversation Credentials") =>
-          //InvalidCobrandConversationCredentialsException
-        //case Some("Content Service Not Found") => ContentServiceNotFoundException
-        case Some(msg) => YodleeException("", "", "", msg)
-        case None => YodleeException("", "", "", "error not specified")
-      }
-      */
     }
 
     async {
@@ -266,8 +239,8 @@ object YodleeWS {
   }
 
   def startVerification(in: StartVerificationInput): Future[Either[YodleeException, YodleeIAVRefreshStatus]] = {
-    val request = mkWSRequest("/jsonsdk/ExtendedInstantVerificationDataService/addItemAndStartVerificationDataRequest")
-
+    implicit val verificationSubUrl = "/jsonsdk/ExtendedInstantVerificationDataService/addItemAndStartVerificationDataRequest"
+    val request = mkWSRequest(verificationSubUrl)
     val data: Map[String, Seq[String]] = {
       val tokens = Map(
         "cobSessionToken" -> Seq(in.cobSessionToken),
@@ -308,67 +281,27 @@ object YodleeWS {
     }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeIAVRefreshStatus] = {
-      log.info(Json.prettyPrint(json))
       json.validate[IAVRefreshStatus].fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
     }
 
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-    /*
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-          case Some("Invalid Cobrand Conversation Credentials") =>
-            InvalidCobrandConversationCredentialsException
-          case Some("Invalid Conversation Credentials") =>
-            InvalidConversationCredentialsException
-          case Some("Content Service Not Found") => ContentServiceNotFoundException
-          case Some("Illegal Argument Value") => IllegalArgumentValueException
-          case Some("Incomplete Argument") => IncompleteArgumentException
-          case Some("IAV Data Request Not Supported") => IAVDataRequestNotSupportedException
-          case Some(msg) => YodleeException(msg)
-          case None => YodleeException("error not specified")
-      }
-      */
-    }
-
     async {
       implicit val timeout: FiniteDuration = 4000 millis
       val resp = await {
-        request.post(data) withTimeout timeoutEx("start verification request timeout")
+        request.post(data) withTimeout timeoutEx("Start verification request timeout")
       }
       validateResponse(resp.json)
     }
   }
 
   def getMFAResponse(in: GetMFAInput): Future[Either[YodleeException, YodleeMFA]] = {
-    val request = mkWSRequest("/jsonsdk/Refresh/getMFAResponse")
+    implicit val getMFASubUrl = "/jsonsdk/Refresh/getMFAResponse"
+    val request = mkWSRequest(getMFASubUrl)
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                    "userSessionToken" -> Seq(in.userSessionToken),
                    "itemId" -> Seq(in.itemId toString))
-
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-        /*
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some("InvalidCobrandConversationCredentialsException") =>
-          InvalidCobrandConversationCredentialsException
-        case Some("InvalidConversationCredentialsException") =>
-          InvalidConversationCredentialsException
-        case Some("InvalidItemException") => InvalidItemException
-        case Some("MFARefreshException") => MFARefreshException
-        case Some(msg) => YodleeException(msg)
-        case None => YodleeException("", "", "", "None")
-      }
-        */
-    }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeMFA] = {
       val token = json.validate[MFARefreshInfoToken].fold(
@@ -385,18 +318,19 @@ object YodleeWS {
         case (v: YodleeMFA, _: YodleeException, _: YodleeException) => Right(v)
         case (_: YodleeException, v: YodleeMFA, _: YodleeException) => Right(v)
         case (_: YodleeException, _: YodleeException, v: YodleeMFA) => Right(v)
-        case (e: YodleeException,
-              YodleeException("", "", "", "None"),
-              YodleeException("", "", "", "None")) => Left(e)
-        case (YodleeException("", "", "", "None"),
+        case (e: YodleeExtendedException,
+              _: YodleeSimpleException,
+              _: YodleeSimpleException) => Left(e)
+        case (_: YodleeSimpleException,
               e: YodleeException,
-              YodleeException("", "", "", "None")) => Left(e)
-        case (YodleeException("", "", "", "None"),
-              YodleeException("", "", "", "None"),
+              _: YodleeSimpleException) => Left(e)
+        case (_: YodleeSimpleException,
+              _: YodleeSimpleException,
               e: YodleeException) => Left(e)
-        case _ => Left(YodleeException("", "", "", "error not specified"))
+        case _ => Left(YodleeSimpleException(Json.prettyPrint(json)))
       }
     }
+
 
     async {
       implicit val timeout: FiniteDuration = 6000 millis
@@ -409,7 +343,8 @@ object YodleeWS {
   }
 
   def putMFAResponse(in: PutMFAInput): Future[Either[YodleeException, YodleeMFAPutResponse]] = {
-    val request = mkWSRequest("/jsonsdk/Refresh/putMFAResponse")
+    implicit val putMFASubUrl = "/jsonsdk/Refresh/putMFAResponse"
+    val request = mkWSRequest(putMFASubUrl)
     val data: Map[String, Seq[String]] = {
       val tokens = Map(
         "cobSessionToken" -> Seq(in.getInput.cobSessionToken),
@@ -444,26 +379,6 @@ object YodleeWS {
       )
     }
 
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-        /*
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some("InvalidCobrandConversationCredentialsException") =>
-          InvalidCobrandConversationCredentialsException
-        case Some("InvalidConversationCredentialsException") =>
-          InvalidConversationCredentialsException
-        case Some("InvalidItemException") => InvalidItemException
-        case Some("MFARefreshException") => MFARefreshException
-        case Some("IllegalArgumentValueException") => IllegalArgumentValueException
-        case Some(msg) => YodleeException(msg)
-        case None => YodleeException("", "", "", "None")
-      }
-        */
-    }
-
     async {
       implicit val timeout: FiniteDuration = 4000 millis
       val resp = await {
@@ -475,7 +390,8 @@ object YodleeWS {
   }
 
   def getVerificationData(in: VerificationDataInput): Future[Either[YodleeException, YodleeVeriticationData]] = {
-    val request = mkWSRequest("/jsonsdk/InstantVerificationDataService/getItemVerificationData")
+    implicit val getDataSubUrl = "/jsonsdk/InstantVerificationDataService/getItemVerificationData"
+    val request = mkWSRequest(getDataSubUrl)
     val data = {
       val tokens = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                        "userSessionToken" -> Seq(in.userSessionToken))
@@ -487,24 +403,6 @@ object YodleeWS {
       tokens ++ ixs
     }
 
-    def invalidHandler(json: JsValue): YodleeException = {
-      json.validate[YodleeException].fold(
-        valid = identity,
-        invalid = _ => YodleeException("", "", "", "error not specified")
-      )
-        /*
-      (json \\ "errorDetail") map (_.asOpt[String]) head match {
-        case Some("InvalidCobrandConversationCredentialsException") =>
-          InvalidCobrandConversationCredentialsException
-        case Some("InvalidConversationCredentialsException") =>
-          InvalidConversationCredentialsException
-        case Some("InvalidItemException") => InvalidItemException
-        case Some("IllegalArgumentValueException") => IllegalArgumentValueException
-        case Some(msg) => YodleeException("", "" ,"", msg)
-        case None => YodleeException("", "", "", "error not specified")
-      }
-        */
-    }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeVeriticationData] = {
       json.validate[ItemVerificationData].fold(
@@ -521,5 +419,5 @@ object YodleeWS {
       validateResponse(resp.json)
     }
   }
-}
 
+}
