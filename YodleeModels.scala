@@ -16,7 +16,7 @@ case class RegisterInput(
   cobSessionToken: String,
   userCredentials: UserCredentials,
   userProfile: UserProfile,
-  userPreferences: List[Option[(String, String)]]
+  userPreferences: List[(String, String)]
 ) extends YodleePost
 case class ContentServiceInfoInput(
   cobSessionToken: String,
