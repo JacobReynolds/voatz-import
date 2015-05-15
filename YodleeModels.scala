@@ -17,7 +17,7 @@ sealed trait YodleeServiceInfo extends YodleeResponse
 sealed trait YodleeLoginForm extends YodleeResponse
 sealed trait YodleeIAVRefreshStatus extends YodleeResponse
 sealed trait YodleeMFA extends YodleeResponse
-sealed trait YodleeVeriticationData extends YodleeResponse
+sealed trait YodleeVerificationData extends YodleeResponse
 
 case class AuthenticateInput(
   cobrandLogin: String,
@@ -614,7 +614,7 @@ case class MFARefreshInfoToken(
   retry: Boolean
 ) extends YodleeMFA
 object MFARefreshInfoToken {
-  implicit val reads = Json.reads[MFARefreshInfoToken]
+  implicit val tokenReads = Json.reads[MFARefreshInfoToken]
 }
 
 case class MFARefreshInfoImage(
@@ -625,7 +625,7 @@ case class MFARefreshInfoImage(
   retry: Boolean
 ) extends YodleeMFA
 object MFARefreshInfoImage {
-  implicit val reads = Json.reads[MFARefreshInfoImage]
+  implicit val imageReads = Json.reads[MFARefreshInfoImage]
 }
 
 case class MFARefreshInfoQuestion(
@@ -636,27 +636,61 @@ case class MFARefreshInfoQuestion(
   retry: Boolean
 ) extends YodleeMFA
 object MFARefreshInfoQuestion {
-  implicit val reads = Json.reads[MFARefreshInfoQuestion]
+  implicit val qaReads = Json.reads[MFARefreshInfoQuestion]
+}
+
+case class MFARefreshDone(
+  isMessageAvailable: Boolean,
+  fieldInfo: SecurityQuestionFieldInfo,
+  timeOutTime: Int,
+  itemId: Int,
+  errorCode: Int,
+  retry: Boolean
+) extends YodleeMFA
+object MFARefreshDone {
+  implicit val doneReads = Json.reads[MFARefreshDone]
+}
+
+object YodleeMFA {
+  import MFARefreshInfoToken._
+  import MFARefreshInfoImage._
+  import MFARefreshInfoQuestion._
+  import MFARefreshDone._
+
+  implicit val reads = tokenReads.map(identity[YodleeMFA]) orElse
+                       imageReads.map(identity[YodleeMFA]) orElse
+                       qaReads.map(identity[YodleeMFA]) orElse
+                       doneReads.map(identity[YodleeMFA])
 }
 
 /* Step 6b */
 case class YodleeMFAPutResponse(response: String)
+/*
 object YodleeMFAPutResponse {
   implicit val reads = Json.reads[YodleeMFAPutResponse]
 }
-
+*/
 /* Step 7 */
-case class RequestType(name: String)
-object RequestType {
-  implicit val reads = Json.reads[RequestType]
-}
-
-case class RequestStatus(verificationRequestStatus: String)
+case class RequestStatus(
+  verificationRequestStatus: String
+)
 object RequestStatus {
   implicit val reads = Json.reads[RequestStatus]
 }
-
-case class ItemInfo(
+case class RequestType(
+  name: String
+)
+object RequestType {
+  implicit val reads = Json.reads[RequestType]
+}
+case class SiteRefreshStatus(
+  siteRefreshStatusId: Int,
+  siteRefreshStatus: String
+)
+object SiteRefreshStatus {
+  implicit val reads = Json.reads[SiteRefreshStatus]
+}
+case class ItemVerificationInfo(
   transactionId: String,
   itemId: Int,
   contentServiceId: Int,
@@ -670,43 +704,67 @@ case class ItemInfo(
   requestedLocale: String,
   derivedLocale: String
 )
-object ItemInfo {
-  implicit val reads = Json.reads[ItemInfo]
+object ItemVerificationInfo {
+  implicit val reads = Json.reads[ItemVerificationInfo]
+}
+case class ItemVerificationInfoInProgress(
+  transactionId: String,
+  itemId: Int,
+  contentServiceId: Int,
+  requestStatus: RequestStatus,
+  requestType: RequestType,
+  requestTime: String,
+  completed: Boolean,
+  statusCode: Int,
+  requestedLocale: String,
+  derivedLocale: String,
+  siteRefreshStatus: SiteRefreshStatus
+)
+object ItemVerificationInfoInProgress {
+  implicit val reads = Json.reads[ItemVerificationInfoInProgress]
 }
 
-case class AccountType(name: String)
-object AccountType {
-  implicit val reads = Json.reads[AccountType]
+case class AvailableBalance(
+  amount: Int,
+  currencyCode: String
+)
+object AvailableBalance {
+  implicit val reads = Json.reads[AvailableBalance]
 }
-
-case class Balance(amount: Int, currencyCode: String)
-object Balance {
-  implicit val reads = Json.reads[Balance]
-}
-
-case class AccountHolder(fullName: String)
+case class AccountHolder(
+  fullName: String
+)
 object AccountHolder {
   implicit val reads = Json.reads[AccountHolder]
 }
-
-case class AccountData(
-  accountType: AccountType,
-  availableBalance: Balance,
-  itemVerificationInfo: ItemInfo,
+case class AccountVerificationData(
+  accountType: RequestType,
+  availableBalance: AvailableBalance,
+  itemVerificationInfo: ItemVerificationInfo,
   accountNumber: String,
   accountName: String,
   accountHolder: AccountHolder
 )
-object AccountData {
-  implicit val reads = Json.reads[AccountData]
+object AccountVerificationData {
+  implicit val reads = Json.reads[AccountVerificationData]
 }
-
-case class ItemVerificationData(items: List[String]) extends YodleeVeriticationData
-object ItemVerificationData {
-  implicit val reads = Json.reads[ItemVerificationData]
-}
-
-case class VerificationItem(itemVerificationInfo: ItemInfo, accountVerificationData: AccountData)
+case class VerificationItem(
+  itemVerificationInfo: ItemVerificationInfo,
+  accountVerificationData: List[AccountVerificationData]
+) extends YodleeVerificationData
 object VerificationItem {
-  implicit val reads = Json.reads[VerificationItem]
+  implicit val finalReads = Json.reads[VerificationItem]
+}
+case class VerificationItemInProgress(
+  itemVerificationInfo: ItemVerificationInfoInProgress
+) extends YodleeVerificationData
+object VerificationItemInProgress {
+  implicit val inProgressReads = Json.reads[VerificationItemInProgress]
+}
+
+object YodleeVerificationData {
+  import VerificationItem._
+  import VerificationItemInProgress._
+  implicit val reads = finalReads.map(identity[YodleeVerificationData]) orElse
+                       inProgressReads.map(identity[YodleeVerificationData])
 }
