@@ -5,6 +5,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{ Try, Success, Failure }
 import scala.annotation.tailrec
+import scala.async.Async.{async, await}
 
 object Client extends App {
   import YodleeWS._
@@ -69,8 +70,8 @@ object Client extends App {
       tuple
     }
 
-    def getMFAInfo: Future[Boolean] = {
-      log.info("getMFAInfo call")
+    def getMFAInfo: Future[(Boolean, Option[Int])] = {
+      log.info("getMFAInfo called")
       val infoObj = (for {
         token <- cobToken
         userToken <- userToken
@@ -85,7 +86,7 @@ object Client extends App {
       infoObj
     }
 
-    def putMFARequest: Future[Boolean] = {
+    def putMFAReq: Future[Boolean] = {
       val value = (for {
         token <- cobToken
         userToken <- userToken
@@ -100,13 +101,23 @@ object Client extends App {
     }
 
     def callMFA: Future[Boolean] = {
-      refreshTuple flatMap { case(st, id) =>
-        if (st == 8) {
-          getMFAInfo flatMap { st =>
-            if (st == true) callMFA
-            else putMFARequest map { r => log.info(s"put status: $r"); r }
+      def loopMFA: Future[Boolean] = { async {
+        val (retry, code) = await { getMFAInfo }
+        if (retry == false) { // no more refresh, proceed
+          code match {
+            case None => {   // put user response
+              val put = await { putMFAReq }
+              log.info(s"put status: ${ put }")
+              await { loopMFA }
+            }
+            case Some(n) => log.info(s"errorCode = $n"); retry // done
           }
-        } else Future { true }
+        } else await { loopMFA }  // refresh more
+      } }
+
+      async {
+        val (st, id) = await { refreshTuple }
+        if (st == 8) await { loopMFA } else true
       }
     }
 
@@ -136,8 +147,12 @@ object Client extends App {
     serviceID foreach { id => log.info(s"contentServiceId = $id") }
     loginFormVal foreach { v => log.info(s"form = $v") }
     refreshTuple foreach { case(st, id) => log.info(s"$st and $id") }
-    loopVerfifyData map { st => log.info(s"final status = $st"); st } andThen { case _ => shutdown("Step Final") }
-    //callMFA foreach { st => log.info(s"mfa refresh status: $st") }
+    callMFA foreach { st =>
+      log.info(s"mfa refresh status: $st")
+      loopVerfifyData map { st =>
+        log.info(s"final status = $st"); st
+      } andThen { case _ => shutdown("Step Final") }
+    }
   }
 
   def authenticateStep: Future[String] = {
@@ -167,8 +182,7 @@ object Client extends App {
   }
 
   def serviceInfoStep(token: String): Future[Int] = {
-    val dagRoutingNumber = 999999989
-    //val dagRoutingNumber = 910080000
+    val dagRoutingNumber = 910080000
     val serviceInfo =
       getContentServiceInfo(ContentServiceInfoInput(token, dagRoutingNumber, true))
 
@@ -179,6 +193,7 @@ object Client extends App {
     }
   }
 
+  /* really optional since it's passed in serviceInfoStep */
   def loginFormStep(token: String, id: Int): Future[String] = {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
@@ -192,17 +207,12 @@ object Client extends App {
                             userToken: String,
                             serviceId: Int): Future[(Int, Int)] = {
     val refreshStatus = startVerification(
-      StartVerificationInput(token, userToken, serviceId, None,
-        None, "com.yodlee.common.FieldInfoSingle", List(
-        CredentialFields("USLoginId", FieldType("TEXT"), 22059, true, 40,
-          "LOGIN", 20, "vulcan.bank2", "LOGIN", "LOGIN_FIELD"),
-
-        /* Simple DAG
+      StartVerificationInput(token, userToken, serviceId, None /*Some(880163464)*/,
+        Some(910080000), "com.yodlee.common.FieldInfoSingle", List(
+        CredentialFields("User Name", FieldType("TEXT"), 92430, true, 40,
+          "LOGIN", 20, "vulcan.BankTokenFMPA1", "LOGIN", "LOGIN_FIELD"),
         CredentialFields("Password", FieldType("IF_PASSWORD"), 92429, true,
-          40, "PASSWORD", 20, "bank1", "PASSWORD", "LOGIN_FIELD"))))
-        */
-        CredentialFields("Password", FieldType("IF_PASSWORD"), 22058, true,
-          40, "PASSWORD1", 20, "bank2", "PASSWORD1", "LOGIN_FIELD"))))
+          40, "PASSWORD", 20, "BankTokenFMPA1", "PASSWORD", "LOGIN_FIELD"))))
     refreshStatus map { _ match {
         case Right(r: IAVRefreshStatus) => (r.refreshStatus.status, r.itemId)
         case Left(e: YodleeExtendedException) => throw new Exception(e.message)
@@ -210,21 +220,24 @@ object Client extends App {
     }
   }
 
-  def getMFAStep(token: String, userToken: String, itemId: Int): Future[Boolean] = {
+  def getMFAStep(token: String, userToken: String, itemId: Int):
+  Future[(Boolean, Option[Int])] = {
     val refreshInfo = getMFAResponse(GetMFAInput(token, userToken, itemId))
     refreshInfo map { _ match {
-        case Right(r: MFARefreshInfoToken) => log.info("TokenMFA: " + r);r.retry
-        case Right(r: MFARefreshInfoImage) => log.info("ImageMFA" + r); r.retry
-        case Right(r: MFARefreshInfoQuestion) => log.info("QAMFA " + r); r.retry
+        case Right(r: MFARefreshInfoToken) => r.retry -> None
+        case Right(r: MFARefreshInfoImage) => r.retry -> None
+        case Right(r: MFARefreshInfoQuestion) => r.retry -> None
+        case Right(r: MFARefreshDone) => r.retry -> Some(r.errorCode)
         case Left(e: YodleeExtendedException) => throw new Exception(e.message)
       }
     }
   }
 
   def putMFAStep(token: String, userToken: String, itemId: Int): Future[Boolean] = {
-    val value = putMFAResponse(PutMFAInput(
+    val value = putMFARequest(PutMFAInput(
         GetMFAInput(token, userToken, itemId),
-        MFAQAResponse("com.yodlee.core.mfarefresh.MFAQuesAnsResponse", Nil))
+        MFATokenResponse("com.yodlee.core.mfarefresh.MFATokenResponse", "123456")
+      )
     )
 
     value map { _ match {
@@ -239,7 +252,7 @@ object Client extends App {
       getVerificationData(VerificationDataInput(token, userToken, List(itemId)))
 
     verificationData map { _ match {
-        case Right(r) => log.info(r toString); r head match {
+        case Right(r) => r head match {
           case item: VerificationItem => item.itemVerificationInfo.statusCode
           case item: VerificationItemInProgress => item.itemVerificationInfo.statusCode
         }

@@ -4,8 +4,10 @@ import play.api.libs.json._
 
 sealed trait YodleePost /* inputs to all methods */
 sealed trait Component
-sealed trait FieldInfo
-sealed trait MFAUserResponse
+sealed trait FieldInfo {
+  def mfaFieldInfoType: String
+}
+//sealed trait MFAUserResponse
 sealed trait UserResponse
 
 sealed trait YodleeException
@@ -137,7 +139,7 @@ case class YodleeExtendedException(
   errorOccurred: String,
   exceptionType: String,
   referenceCode: String,
-  message: String
+  message: String //TODO detailedMEssage is also possible
 ) extends YodleeException
 object YodleeExtendedException {
   implicit val extendedReads = Json.reads[YodleeExtendedException]
@@ -579,7 +581,8 @@ object QAValues {
 
 case class SecurityQuestionFieldInfo(
   questionAndAnswerValues: List[QAValues],
-  numOfMandatoryQuestions: Int
+  numOfMandatoryQuestions: Int,
+  mfaFieldInfoType: String
 ) extends FieldInfo
 object SecurityQuestionFieldInfo {
   implicit val reads = Json.reads[SecurityQuestionFieldInfo]
@@ -589,7 +592,8 @@ case class TokenFieldInfo(
   responseFieldType: String,
   minimumLength: Int,
   maximumLength: Int,
-  displayString: String
+  displayString: String,
+  mfaFieldInfoType: String
 ) extends FieldInfo
 object TokenFieldInfo {
   implicit val reads = Json.reads[TokenFieldInfo]
@@ -601,11 +605,13 @@ case class ImageFieldInfo(
   image: List[Int],
   minimumLength: Int,
   maximumLength: Int,
-  displayString: String
+  displayString: String,
+  mfaFieldInfoType: String
 ) extends FieldInfo
 object ImageFieldInfo {
   implicit val reads = Json.reads[ImageFieldInfo]
 }
+
 case class MFARefreshInfoToken(
   isMessageAvailable: Boolean,
   fieldInfo: TokenFieldInfo,
