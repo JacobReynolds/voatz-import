@@ -43,7 +43,7 @@ object Client extends App {
       contentServiceId
     }
 
-    val loginFormVal: Future[String] = {
+    def loginFormVal: Future[String] = {
       val form = (for {
         token: String <- cobToken
         id: Int <- serviceID
@@ -145,7 +145,7 @@ object Client extends App {
     cobToken foreach { tn => log.info(s"cobToken = $tn") }
     userToken foreach { ut => log.info(s"userToken = $ut") }
     serviceID foreach { id => log.info(s"contentServiceId = $id") }
-    loginFormVal foreach { v => log.info(s"form = $v") }
+    //loginFormVal foreach { v => log.info(s"form = $v") }
     refreshTuple foreach { case(st, id) => log.info(s"$st and $id") }
     callMFA foreach { st =>
       log.info(s"mfa refresh status: $st")
@@ -164,7 +164,7 @@ object Client extends App {
     authRes map {
       _ match {
         case Right(r: AuthenticateCobrand) => r.cobrandConversationCredentials.sessionToken
-        case Left(e: YodleeSimpleException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -176,7 +176,7 @@ object Client extends App {
 
     loginResp map { _ match {
         case Right(r: UserInfo) => r.userContext.conversationCredentials.sessionToken
-        case Left(e: YodleeSimpleException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -188,7 +188,7 @@ object Client extends App {
 
     serviceInfo map { _ match {
         case Right(r: ContentServiceInfo) => r.seq1.contentServiceId
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -198,7 +198,7 @@ object Client extends App {
     val form = getLoginForm(LoginFormInput(token, id))
     form map { _ match {
         case Right(r: LoginForm) => r.defaultHelpText
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -207,15 +207,16 @@ object Client extends App {
                             userToken: String,
                             serviceId: Int): Future[(Int, Int)] = {
     val refreshStatus = startVerification(
-      StartVerificationInput(token, userToken, serviceId, None /*Some(880163464)*/,
-        Some(910080000), "com.yodlee.common.FieldInfoSingle", List(
+      StartVerificationInput(
+        token, userToken, "com.yodlee.common.FieldInfoSingle", List(
         CredentialFields("User Name", FieldType("TEXT"), 92430, true, 40,
           "LOGIN", 20, "vulcan.BankTokenFMPA1", "LOGIN", "LOGIN_FIELD"),
         CredentialFields("Password", FieldType("IF_PASSWORD"), 92429, true,
-          40, "PASSWORD", 20, "BankTokenFMPA1", "PASSWORD", "LOGIN_FIELD"))))
+          40, "PASSWORD", 20, "BankTokenFMPA1", "PASSWORD", "LOGIN_FIELD")),
+        IAVRequest(serviceId)))
     refreshStatus map { _ match {
         case Right(r: IAVRefreshStatus) => (r.refreshStatus.status, r.itemId)
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -228,7 +229,7 @@ object Client extends App {
         case Right(r: MFARefreshInfoImage) => r.retry -> None
         case Right(r: MFARefreshInfoQuestion) => r.retry -> None
         case Right(r: MFARefreshDone) => r.retry -> Some(r.errorCode)
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -241,8 +242,8 @@ object Client extends App {
     )
 
     value map { _ match {
-        case Right(r) => r.response toBoolean
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Right(r) => r.primitiveObj
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }
@@ -256,7 +257,7 @@ object Client extends App {
           case item: VerificationItem => item.itemVerificationInfo.statusCode
           case item: VerificationItemInProgress => item.itemVerificationInfo.statusCode
         }
-        case Left(e: YodleeExtendedException) => throw new Exception(e.message)
+        case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
   }

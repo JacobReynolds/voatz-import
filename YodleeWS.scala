@@ -139,6 +139,32 @@ object YodleeWS {
     }
   }
 
+  def searchSiteWithFilter(in: SearchSiteInput): Future[Either[YodleeException,
+  YodleeSiteInfo]] = {
+    val data = Map(
+      "cobSessionToken" -> Seq(in.cobSessionToken),
+      "userSessionToken" -> Seq(in.userSessionToken),
+      "siteSearchString" -> Seq(in.siteSearchString),
+      "siteSearchFilter.retrieveIavSitesOnly" ->
+        Seq(in.siteSearchFilter.retrieveIavSitesOnly toString),
+      "siteSearchFilter.containers" -> Seq(in.siteSearchFilter.containers)
+    )
+
+    implicit val searchSiteSubUrl = "/jsonsdk/SiteTraversal/searchSiteWithFilter"
+
+    def validateResponse(json: JsValue): Either[YodleeException, YodleeSiteInfo] = {
+      json.validate[YodleeSiteInfo] fold(
+        valid = Right(_),
+        invalid = _ => Left(invalidHandler(json))
+      )
+    }
+
+    async {
+      val resp = await { sendRequest(data, "searchSite request timeout") }
+      validateResponse(resp json)
+    }
+  }
+
   def getContentServiceInfo(in: ContentServiceInfoInput):
     Future[Either[YodleeException, YodleeServiceInfo]] = {
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
@@ -156,14 +182,19 @@ object YodleeWS {
       val seq3 = json.validate[ContentServiceInfoSeq3] fold(
         invalid = _ => invalidHandler(json), identity
       )
+      val seq4 = json.validate[ContentServiceInfoSeq4] fold(
+        invalid = _ => invalidHandler(json), identity
+      )
 
-      (seq1, seq2, seq3) match {
-        case (ex: YodleeException, _, _) => Left(ex)
-        case (_, ex: YodleeException, _) => Left(ex)
-        case (_, _, ex: YodleeException) => Left(ex)
+      (seq1, seq2, seq3, seq4) match {
+        case (ex: YodleeException, _, _, _) => Left(ex)
+        case (_, ex: YodleeException, _, _) => Left(ex)
+        case (_, _, ex: YodleeException, _) => Left(ex)
+        case (_, _, _, ex: YodleeException) => Left(ex)
         case _ => Right(ContentServiceInfo(seq1.asInstanceOf[ContentServiceInfoSeq1],
                                            seq2.asInstanceOf[ContentServiceInfoSeq2],
-                                           seq3.asInstanceOf[ContentServiceInfoSeq3]))
+                                           seq3.asInstanceOf[ContentServiceInfoSeq3],
+                                           seq4.asInstanceOf[ContentServiceInfoSeq4]))
       }
     }
 
@@ -174,6 +205,7 @@ object YodleeWS {
     }
   }
 
+  /* no longer used in the new IAV API */
   def getLoginForm(in: LoginFormInput): Future[Either[YodleeException, YodleeLoginForm]] = {
     val data = Map("cobSessionToken" -> Seq(in.cobSessionToken),
                    "contentServiceId" -> Seq(in.contentServiceId toString))
@@ -193,23 +225,15 @@ object YodleeWS {
   }
 
   def startVerification(in: StartVerificationInput): Future[Either[YodleeException, YodleeIAVRefreshStatus]] = {
-    implicit val verificationSubUrl = "/jsonsdk/ExtendedInstantVerificationDataService/addItemAndStartVerificationDataRequest"
+    implicit val verificationSubUrl =
+      "/jsonsdk/ExtendedInstantVerificationDataService/addItemAndStartVerificationDataRequest1"
+
     val data: Map[String, Seq[String]] = {
       val tokens = Map(
         "cobSessionToken" -> Seq(in.cobSessionToken),
         "userSessionToken" -> Seq(in.userSessionToken),
-        "contentServiceId" -> Seq(in.contentServiceId toString)
+        "credentialFields.enclosedType" -> Seq(in.enclosedType)
       )
-
-      val accNum = in.accountNumber map { x =>
-          Map("accountNumber" -> Seq(x toString))
-        } getOrElse Map.empty[String, Seq[String]]
-
-      val routNum = in.accountNumber map {
-          x => Map("routingNumber" -> Seq(x toString))
-        } getOrElse Map.empty[String, Seq[String]]
-
-      val encType = Map("credentialFields.enclosedType" -> Seq(in.enclosedType))
 
       val cfms = {
         val cfs = in.credentialFields
@@ -225,10 +249,29 @@ object YodleeWS {
           s"credentialFields[$i].valueIdentifier" -> Seq(cf.valueIdentifier),
           s"credentialFields[$i].valueMask" -> Seq(cf.valueMask)
         )
-        (Map.empty[String, Seq[String]] /: xs) {_ ++ _}
+        (Map.empty[String, Seq[String]] /: xs) (_ ++ _)
       }
 
-      tokens ++ accNum ++ routNum ++ encType ++ cfms
+      val iavRequest = {
+        val serviceId =
+          Map("iavRequest.contentServiceId" -> Seq(in.iavRequest.contentServiceId toString))
+        val loginResponse = in.iavRequest.isLoginResponseRequired map { x =>
+            Map("iavRequest.isLoginResponseRequired" -> Seq(x toString))
+          } getOrElse Map.empty[String, Seq[String]]
+        val accountSummary = in.iavRequest.isAccountSummaryResponseRequired map { x =>
+            Map("iavRequest.isAccountSummaryResponseRequired" -> Seq(x toString))
+          } getOrElse Map.empty[String, Seq[String]]
+        val transactionResponse = in.iavRequest.isTransactionResponseRequired map { x =>
+            Map("iavRequest.isTransactionResponseRequired" -> Seq(x toString))
+          } getOrElse Map.empty[String, Seq[String]]
+        val transactionLimit = in.iavRequest.transactionLimit map { x =>
+            Map("iavRequest.transactionLimit" -> Seq(x toString))
+          } getOrElse Map.empty[String, Seq[String]]
+
+        serviceId ++ loginResponse ++ accountSummary ++ transactionResponse ++
+          transactionLimit
+      }
+      tokens ++ cfms ++ iavRequest
     }
 
     def validateResponse(json: JsValue): Either[YodleeException, YodleeIAVRefreshStatus] = {
@@ -258,7 +301,7 @@ object YodleeWS {
     }
 
     async {
-      val resp = await { sendRequest(data, "getMFA request timeout", 30000) }
+      val resp = await { sendRequest(data, "getMFA request timeout", 90000) }
       log.info(Json prettyPrint(resp json))
       validateResponse(resp json)
     }
@@ -266,17 +309,17 @@ object YodleeWS {
 
   def putMFARequest(in: PutMFAInput): Future[Either[YodleeException, YodleeMFAPutResponse]] = {
     val data: Map[String, Seq[String]] = {
-      val tokens = ListMap(
+      val tokens = Map(
         "cobSessionToken" -> Seq(in.getInput.cobSessionToken),
         "userSessionToken" -> Seq(in.getInput.userSessionToken),
         "itemId" -> Seq(in.getInput.itemId toString)
       )
 
       val respMap = in.userResponse match {
-        case MFATokenResponse(o, t) => ListMap("userResponse.objectInstanceType" -> Seq(o),
+        case MFATokenResponse(o, t) => Map("userResponse.objectInstanceType" -> Seq(o),
                                            "userResponse.token" -> Seq(t))
-        case MFAImageResponse(o, t) => ListMap("userResponse.objectInstanceType" -> Seq(o),
-                                           "userResponse.imageString" -> Seq(t))
+        case MFAImageResponse(o, str) => Map("userResponse.objectInstanceType" -> Seq(o),
+                                             "userResponse.imageString" -> Seq(str))
         case MFAQAResponse(o, vs) => {
           val xs = for (i <- 0 until vs.size; r = vs(i) ) yield Map(
             s"quesAnsDetailArray[$i].answer" -> Seq(r.answer),
@@ -285,22 +328,19 @@ object YodleeWS {
             s"quesAnsDetailArray[$i].question" -> Seq(r.question),
             s"quesAnsDetailArray[$i].questionFieldType" -> Seq(r.questionFieldType)
           )
-          ListMap("userResponse.objectInstanceType" -> Seq(o)) ++
-            (ListMap.empty[String, Seq[String]] /: xs) {_ ++ _}
+          Map("userResponse.objectInstanceType" -> Seq(o)) ++
+            (Map.empty[String, Seq[String]] /: xs) {_ ++ _}
         }
       }
-      val res = tokens ++ respMap
-      log info(res toString)
-      res
+      tokens ++ respMap
     }
 
-    implicit val putMFASubUrl = "/jsonsdk/Refresh/putMFAResponse"
+    implicit val putMFASubUrl = "/jsonsdk/Refresh/putMFARequest"
     def validateResponse(json: JsValue): Either[YodleeException, YodleeMFAPutResponse] = {
-      json.toString.toLowerCase match {
-        case "true" => Right(YodleeMFAPutResponse("true"))
-        case "false" => Left(YodleeSimpleException("false"))
-        case _ => Left(invalidHandler(json))
-      }
+      json.validate[YodleeMFAPutResponse] fold(
+        valid = Right(_),
+        invalid = _ => Left(invalidHandler(json))
+      )
     }
 
     async {

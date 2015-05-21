@@ -20,6 +20,7 @@ sealed trait YodleeLoginForm extends YodleeResponse
 sealed trait YodleeIAVRefreshStatus extends YodleeResponse
 sealed trait YodleeMFA extends YodleeResponse
 sealed trait YodleeVerificationData extends YodleeResponse
+sealed trait YodleeSiteInfo extends YodleeResponse
 
 case class AuthenticateInput(
   cobrandLogin: String,
@@ -48,11 +49,11 @@ case class LoginFormInput(
 case class StartVerificationInput(
   cobSessionToken: String,
   userSessionToken: String,
-  contentServiceId: Int,
-  accountNumber: Option[Int],
-  routingNumber: Option[Int],
   enclosedType: String,
-  credentialFields: List[CredentialFields]
+  credentialFields: List[CredentialFields],
+  iavRequest: IAVRequest
+  //accountNumber: Option[Int] = None,
+  //routingNumber: Option[Int] = None
 ) extends YodleePost
 case class GetMFAInput(
   cobSessionToken: String,
@@ -68,6 +69,16 @@ case class VerificationDataInput(
   userSessionToken: String,
   itemIds: List[Int]
 )
+case class SearchFilter(
+  retrieveIavSitesOnly: Boolean,
+  containers: String
+)
+case class SearchSiteInput(
+  cobSessionToken: String,
+  userSessionToken: String,
+  siteSearchString: String,
+  siteSearchFilter: SearchFilter
+) extends YodleePost
 
 object MFAInstanceType extends Enumeration {
   type MFAInstanceType = Value
@@ -134,6 +145,14 @@ case class CredentialFields(
   valueMask: String
 )
 
+case class IAVRequest(
+  contentServiceId: Int,
+  isLoginResponseRequired: Option[Boolean] = None,
+  isAccountSummaryResponseRequired: Option[Boolean] = None,
+  isTransactionResponseRequired: Option[Boolean] = None,
+  transactionLimit: Option[Int] = None
+)
+
 /* all Exceptions */
 case class YodleeExtendedException(
   errorOccurred: String,
@@ -153,8 +172,8 @@ object YodleeSimpleException {
 object YodleeException {
   import YodleeSimpleException._
   import YodleeExtendedException._
-  implicit val reads = simpleReads.map(identity[YodleeException]) orElse
-                       extendedReads.map(identity[YodleeException])
+  implicit val reads = extendedReads.map(identity[YodleeException]) orElse
+                       simpleReads.map(identity[YodleeException])
 }
 
 /*
@@ -181,6 +200,7 @@ case object IAVDataRequestNotSupportedException extends YodleeException
 case object InvalidItemException extends YodleeException
 case object MFARefreshException extends YodleeException
 case object ContentServiceNotFoundException extends YodleeException
+case object InvalidUserContextException extends YodleeException
 */
 
 /* Response Models for all steps */
@@ -295,169 +315,26 @@ object ContainerInfo {
   implicit val reads = Json.reads[ContainerInfo]
 }
 
+case class ContentServiceInfos(
+  contentServiceId: Int,
+  siteId: Int,
+  containerInfo: ContainerInfo
+)
+object ContentServiceInfos {
+  implicit val reads = Json.reads[ContentServiceInfos]
+}
+case class MFAType(
+  typeId: Int,
+  typeName: String
+)
+object MFAType {
+  implicit val reads = Json.reads[MFAType]
+}
 case class Country(country: String)
 object Country {
   implicit val reads = Json.reads[Country]
 }
 
-/* should work with sbt 1.0 when it's released
-case class ContentServiceInfo(
-  contentServiceId: Int, serviceId: Int,
-  contentServiceDisplayName: String, organizationId: Int,
-  organizationDisplayName: String, siteId: Int, siteDisplayName: String,
-  custom: Boolean, loginUrl: String, homeUrl: String, registrationUrl: String,
-  contactUrl: String, containerInfo: ContainerInfo,
-  isCredentialRequired: Boolean, autoRegistrationSupported: Boolean,
-  autoLoginType: Int, geographicRegionsServed: Array[String],
-  autoPayCardSetupSupported: Boolean, directCardPaymentSupported: Boolean,
-  directCheckPaymentSupported: Boolean,
-  autoPayCardCancelSupported: Boolean, paymentVerificationSupported: Boolean,
-  supportedAutoPaySetupCardTypeIds: Array[Int],
-  supportedDirectPaymentCardTypeIds: Array[Int],
-  hasPaymentHistory: Boolean, timeToUpdatePaymentHistory: Int,
-  timeToPostDirectCardPayment: Int, isCSCForDirectPaymRequired: Boolean,
-  isCSCForAutoPayRequired: Boolean, timeZoneId: String,
-  isIAVFastSupported: Boolean, hasSiblingContentServices: Boolean,
-  isFTEnabled: Boolean, isOnlinePaymentSupported: Boolean,
-  autoRegistrationPaperBillSuppressionType: AutoRegistration,
-  autoPayCardPaperBillSuppressionType: AutoPay,
-  directCardPaymentPaperBillSuppressionType: DirectPay,
-  addItemAccountSupported: Boolean, isAddAccountMultiFormAction: Boolean,
-  isAutoRegistrationMultiFormAction: Boolean,
-  isAddItemAccountMultiFormAction: Boolean, isSiteCredentialsStored: Boolean,
-  isPaymentAmountRequiredForAutopay: Boolean,
-  isNumberOfPaymentsRequiredForAutopay: Boolean,
-  isFrequencyRequiredForAutopay: Boolean,
-  supportedAutopayFrequencyTypes: Array[String],
-  isConveninceFeeChargedForDirectCardPayment: Boolean,
-  conveninceFeeRuleMessage: String, isEBillPaymSupprtd: Boolean,
-  isBetaSite: Boolean, isBPAASource: Boolean, isBPAADest: Boolean,
-  supportedBPSRecurringFrequencies: Array[String],
-  checkLeadInterval: Int, cardLeadInterval: Int,
-  isDirectTransferSupported: Boolean, isSiblingAutoAdditionSafe: Boolean,
-  defaultHelpText: String
-) extends YodleeServiceInfo
-*/
-case class ContentServiceInfoSeq1(
-  contentServiceId: Int, serviceId: Int,
-  contentServiceDisplayName: String, organizationId: Int,
-  organizationDisplayName: String, siteId: Int, siteDisplayName: String,
-  custom: Boolean, loginUrl: String, homeUrl: String, registrationUrl: String,
-  contactUrl: String, containerInfo: ContainerInfo,
-  isCredentialRequired: Boolean, autoRegistrationSupported: Boolean,
-  autoLoginType: Int, geographicRegionsServed: List[Country],
-  autoPayCardSetupSupported: Boolean, directCardPaymentSupported: Boolean,
-  directCheckPaymentSupported: Boolean
-)
-object ContentServiceInfoSeq1 {
-  implicit val reads = Json.reads[ContentServiceInfoSeq1]
-}
-
-case class ContentServiceInfoSeq2(
-  autoPayCardCancelSupported: Boolean, paymentVerificationSupported: Boolean,
-  supportedAutoPaySetupCardTypeIds: List[Int],
-  supportedDirectPaymentCardTypeIds: List[Int],
-  hasPaymentHistory: Boolean, timeToUpdatePaymentHistory: Int,
-  timeToPostDirectCardPayment: Int, isCSCForDirectPaymRequired: Boolean,
-  isCSCForAutoPayRequired: Boolean, timeZoneId: String,
-  isIAVFastSupported: Boolean, hasSiblingContentServices: Boolean,
-  isFTEnabled: Boolean, isOnlinePaymentSupported: Boolean,
-  autoRegistrationPaperBillSuppressionType: AutoRegistration,
-  autoPayCardPaperBillSuppressionType: AutoPay,
-  directCardPaymentPaperBillSuppressionType: DirectPay,
-  addItemAccountSupported: Boolean, isAddAccountMultiFormAction: Boolean,
-  isAutoRegistrationMultiFormAction: Boolean
-)
-object ContentServiceInfoSeq2 {
-  implicit val reads = Json.reads[ContentServiceInfoSeq2]
-}
-case class ContentServiceInfoSeq3(
-  isAddItemAccountMultiFormAction: Boolean, isSiteCredentialsStored: Boolean,
-  isPaymentAmountRequiredForAutopay: Boolean,
-  isNumberOfPaymentsRequiredForAutopay: Boolean,
-  isFrequencyRequiredForAutopay: Boolean,
-  supportedAutopayFrequencyTypes: List[String],
-  isConveninceFeeChargedForDirectCardPayment: Boolean,
-  conveninceFeeRuleMessage: String, isEBillPaymSupprtd: Boolean,
-  isBetaSite: Boolean, isBPAASource: Boolean, isBPAADest: Boolean,
-  supportedBPSRecurringFrequencies: List[String],
-  checkLeadInterval: Int, cardLeadInterval: Int,
-  isDirectTransferSupported: Boolean, isSiblingAutoAdditionSafe: Boolean,
-  defaultHelpText: String
-)
-object ContentServiceInfoSeq3 {
-  implicit val reads = Json.reads[ContentServiceInfoSeq3]
-}
-
-case class ContentServiceInfo(
-  seq1: ContentServiceInfoSeq1,
-  seq2: ContentServiceInfoSeq2,
-  seq3: ContentServiceInfoSeq3
-) extends YodleeServiceInfo {
-  def contentServiceId: Int = seq1.contentServiceId
-  def serviceId: Int = seq1.serviceId
-  def contentServiceDisplayName: String = seq1.contentServiceDisplayName
-  def organizationId: Int = seq1.organizationId
-  def organizationDisplayName: String = seq1.organizationDisplayName
-  def siteId: Int = seq1.siteId
-  def siteDisplayName: String = seq1.siteDisplayName
-  def custom: Boolean = seq1.custom
-  def loginUrl: String = seq1.loginUrl
-  def homeUrl: String = seq1.homeUrl
-  def registrationUrl: String = seq1.registrationUrl
-  def contactUrl: String = seq1.contactUrl
-  def containerInfo: ContainerInfo = seq1.containerInfo
-  def isCredentialRequired: Boolean = seq1.isCredentialRequired
-  def autoRegistrationSupported: Boolean = seq1.autoRegistrationSupported
-  def autoLoginType: Int = seq1.autoLoginType
-  def geographicRegionsServed: List[Country] = seq1.geographicRegionsServed
-  def autoPayCardSetupSupported: Boolean = seq1.autoPayCardSetupSupported
-  def directCardPaymentSupported: Boolean = seq1.directCardPaymentSupported
-  def directCheckPaymentSupported: Boolean = seq1.directCheckPaymentSupported
-  def autoPayCardCancelSupported: Boolean = seq2.autoPayCardCancelSupported
-  def paymentVerificationSupported: Boolean = seq2.paymentVerificationSupported
-  def supportedAutoPaySetupCardTypeIds: List[Int] = seq2.supportedAutoPaySetupCardTypeIds
-  def supportedDirectPaymentCardTypeIds: List[Int] = seq2.supportedDirectPaymentCardTypeIds
-  def hasPaymentHistory: Boolean = seq2.hasPaymentHistory
-  def timeToUpdatePaymentHistory: Int = seq2.timeToUpdatePaymentHistory
-  def timeToPostDirectCardPayment: Int = seq2.timeToPostDirectCardPayment
-  def isCSCForDirectPaymRequired: Boolean = seq2.isCSCForDirectPaymRequired
-  def isCSCForAutoPayRequired: Boolean = seq2.isCSCForAutoPayRequired
-  def timeZoneId: String = seq2.timeZoneId
-  def isIAVFastSupported: Boolean = seq2.isIAVFastSupported
-  def hasSiblingContentServices: Boolean = seq2.hasSiblingContentServices
-  def isFTEnabled: Boolean = seq2.isFTEnabled
-  def isOnlinePaymentSupported: Boolean = seq2.isOnlinePaymentSupported
-  def autoRegistrationPaperBillSuppressionType: AutoRegistration = seq2.autoRegistrationPaperBillSuppressionType
-  def autoPayCardPaperBillSuppressionType: AutoPay = seq2.autoPayCardPaperBillSuppressionType
-  def directCardPaymentPaperBillSuppressionType: DirectPay = seq2.directCardPaymentPaperBillSuppressionType
-  def addItemAccountSupported: Boolean = seq2.addItemAccountSupported
-  def isAddAccountMultiFormAction: Boolean = seq2.isAddAccountMultiFormAction
-  def isAutoRegistrationMultiFormAction: Boolean = seq2.isAutoRegistrationMultiFormAction
-  def isAddItemAccountMultiFormAction: Boolean = seq3.isAddItemAccountMultiFormAction
-  def isSiteCredentialsStored: Boolean = seq3.isSiteCredentialsStored
-  def isPaymentAmountRequiredForAutopay: Boolean = seq3.isPaymentAmountRequiredForAutopay
-  def isNumberOfPaymentsRequiredForAutopay: Boolean = seq3.isNumberOfPaymentsRequiredForAutopay
-  def isFrequencyRequiredForAutopay: Boolean = seq3.isFrequencyRequiredForAutopay
-  def supportedAutopayFrequencyTypes: List[String] = seq3.supportedAutopayFrequencyTypes
-  def isConveninceFeeChargedForDirectCardPayment: Boolean = seq3.isConveninceFeeChargedForDirectCardPayment
-  def conveninceFeeRuleMessage: String = seq3.conveninceFeeRuleMessage
-  def isEBillPaymSupprtd: Boolean = seq3.isEBillPaymSupprtd
-  def isBetaSite: Boolean = seq3.isBetaSite
-  def isBPAASource: Boolean = seq3.isBPAASource
-  def isBPAADest: Boolean = seq3.isBPAADest
-  def supportedBPSRecurringFrequencies: List[String] = seq3.supportedBPSRecurringFrequencies
-  def checkLeadInterval: Int = seq3.checkLeadInterval
-  def cardLeadInterval: Int = seq3.cardLeadInterval
-  def isDirectTransferSupported: Boolean = seq3.isDirectTransferSupported
-  def isSiblingAutoAdditionSafe: Boolean = seq3.isSiblingAutoAdditionSafe
-  def defaultHelpText: String = seq3.defaultHelpText
-}
-object ContentServiceInfo {
-  implicit val reads = Json.reads[ContentServiceInfo]
-}
-
-/* Step 4 */
 case class ConjunctionOp(
   conjuctionOp: Int
 )
@@ -550,6 +427,238 @@ case class LoginForm(
 ) extends YodleeLoginForm
 object LoginForm {
   implicit val reads = Json.reads[LoginForm]
+}
+
+
+/* should work with sbt 1.0 when it's released
+case class ContentServiceInfo(
+  contentServiceId: Int, serviceId: Int,
+  contentServiceDisplayName: String, organizationId: Int,
+  organizationDisplayName: String, siteId: Int, siteDisplayName: String,
+  custom: Boolean, loginUrl: String, homeUrl: String, registrationUrl: String,
+  contactUrl: String, containerInfo: ContainerInfo,
+  isCredentialRequired: Boolean, autoRegistrationSupported: Boolean,
+  autoLoginType: Int, geographicRegionsServed: Array[String],
+  autoPayCardSetupSupported: Boolean, directCardPaymentSupported: Boolean,
+  directCheckPaymentSupported: Boolean,
+  autoPayCardCancelSupported: Boolean, paymentVerificationSupported: Boolean,
+  supportedAutoPaySetupCardTypeIds: Array[Int],
+  supportedDirectPaymentCardTypeIds: Array[Int],
+  hasPaymentHistory: Boolean, timeToUpdatePaymentHistory: Int,
+  timeToPostDirectCardPayment: Int, isCSCForDirectPaymRequired: Boolean,
+  isCSCForAutoPayRequired: Boolean, timeZoneId: String,
+  isIAVFastSupported: Boolean, hasSiblingContentServices: Boolean,
+  isFTEnabled: Boolean, isOnlinePaymentSupported: Boolean,
+  autoRegistrationPaperBillSuppressionType: AutoRegistration,
+  autoPayCardPaperBillSuppressionType: AutoPay,
+  directCardPaymentPaperBillSuppressionType: DirectPay,
+  addItemAccountSupported: Boolean, isAddAccountMultiFormAction: Boolean,
+  isAutoRegistrationMultiFormAction: Boolean,
+  isAddItemAccountMultiFormAction: Boolean, isSiteCredentialsStored: Boolean,
+  isPaymentAmountRequiredForAutopay: Boolean,
+  isNumberOfPaymentsRequiredForAutopay: Boolean,
+  isFrequencyRequiredForAutopay: Boolean,
+  supportedAutopayFrequencyTypes: Array[String],
+  isConveninceFeeChargedForDirectCardPayment: Boolean,
+  conveninceFeeRuleMessage: String, isEBillPaymSupprtd: Boolean,
+  isBetaSite: Boolean, isBPAASource: Boolean, isBPAADest: Boolean,
+  supportedBPSRecurringFrequencies: Array[String],
+  checkLeadInterval: Int, cardLeadInterval: Int,
+  isDirectTransferSupported: Boolean, isSiblingAutoAdditionSafe: Boolean,
+  defaultHelpText: String
+) extends YodleeServiceInfo
+*/
+case class ContentServiceInfoSeq1(
+  contentServiceId: Int, serviceId: Int,
+  contentServiceDisplayName: String, organizationId: Int,
+  organizationDisplayName: String, siteId: Int, siteDisplayName: String,
+  custom: Boolean, loginUrl: String, homeUrl: String, registrationUrl: String,
+  passwordHelpUrl: String, contactUrl: String, containerInfo: ContainerInfo,
+  isCredentialRequired: Boolean, autoRegistrationSupported: Boolean,
+  autoLoginType: Int, geographicRegionsServed: List[Country],
+  autoPayCardSetupSupported: Boolean, directCardPaymentSupported: Boolean,
+  directCheckPaymentSupported: Boolean
+)
+object ContentServiceInfoSeq1 {
+  implicit val reads = Json.reads[ContentServiceInfoSeq1]
+}
+
+case class ContentServiceInfoSeq2(
+  autoPayCardCancelSupported: Boolean, paymentVerificationSupported: Boolean,
+  supportedAutoPaySetupCardTypeIds: List[Int],
+  supportedDirectPaymentCardTypeIds: List[Int],
+  hasPaymentHistory: Boolean, timeToUpdatePaymentHistory: Int,
+  timeToPostDirectCardPayment: Int, isCSCForDirectPaymRequired: Boolean,
+  isCSCForAutoPayRequired: Boolean, timeZoneId: String,
+  isIAVFastSupported: Boolean, hasSiblingContentServices: Boolean,
+  isFTEnabled: Boolean, isOnlinePaymentSupported: Boolean,
+  autoRegistrationPaperBillSuppressionType: AutoRegistration,
+  autoPayCardPaperBillSuppressionType: AutoPay,
+  directCardPaymentPaperBillSuppressionType: DirectPay,
+  loginForm: LoginForm,
+  addItemAccountSupported: Boolean, isAddAccountMultiFormAction: Boolean,
+  isAutoRegistrationMultiFormAction: Boolean
+)
+object ContentServiceInfoSeq2 {
+  implicit val reads = Json.reads[ContentServiceInfoSeq2]
+}
+case class ContentServiceInfoSeq3(
+  isAddItemAccountMultiFormAction: Boolean, isSiteCredentialsStored: Boolean,
+  isPaymentAmountRequiredForAutopay: Boolean,
+  isNumberOfPaymentsRequiredForAutopay: Boolean,
+  isFrequencyRequiredForAutopay: Boolean,
+  supportedAutopayFrequencyTypes: List[String],
+  isConveninceFeeChargedForDirectCardPayment: Boolean,
+  conveninceFeeRuleMessage: String, isEBillPaymSupprtd: Boolean,
+  isBetaSite: Boolean, isBPAASource: Boolean, isBPAADest: Boolean,
+  supportedBPSRecurringFrequencies: List[String],
+  checkLeadInterval: Int, cardLeadInterval: Int,
+  isDocDownloadSupprtd: Boolean, mfaType: MFAType,
+  isDirectTransferSupported: Boolean, isSiblingAutoAdditionSafe: Boolean,
+  isRtnSupported: Boolean, isFullAccNumberSupported: Boolean,
+  isAccHolderNameSupported: Boolean
+)
+object ContentServiceInfoSeq3 {
+  implicit val reads = Json.reads[ContentServiceInfoSeq3]
+}
+
+case class ContentServiceInfoSeq4(
+  mfaCoverage: String,
+  defaultHelpText: String
+)
+object ContentServiceInfoSeq4 {
+  implicit val reads = Json.reads[ContentServiceInfoSeq4]
+}
+
+case class ContentServiceInfo(
+  seq1: ContentServiceInfoSeq1,
+  seq2: ContentServiceInfoSeq2,
+  seq3: ContentServiceInfoSeq3,
+  seq4: ContentServiceInfoSeq4
+) extends YodleeServiceInfo {
+  def contentServiceId: Int = seq1.contentServiceId
+  def serviceId: Int = seq1.serviceId
+  def contentServiceDisplayName: String = seq1.contentServiceDisplayName
+  def organizationId: Int = seq1.organizationId
+  def organizationDisplayName: String = seq1.organizationDisplayName
+  def siteId: Int = seq1.siteId
+  def siteDisplayName: String = seq1.siteDisplayName
+  def custom: Boolean = seq1.custom
+  def loginUrl: String = seq1.loginUrl
+  def homeUrl: String = seq1.homeUrl
+  def registrationUrl: String = seq1.registrationUrl
+  def passwordHelpUrl: String = seq1.passwordHelpUrl
+  def contactUrl: String = seq1.contactUrl
+  def containerInfo: ContainerInfo = seq1.containerInfo
+  def isCredentialRequired: Boolean = seq1.isCredentialRequired
+  def autoRegistrationSupported: Boolean = seq1.autoRegistrationSupported
+  def autoLoginType: Int = seq1.autoLoginType
+  def geographicRegionsServed: List[Country] = seq1.geographicRegionsServed
+  def autoPayCardSetupSupported: Boolean = seq1.autoPayCardSetupSupported
+  def directCardPaymentSupported: Boolean = seq1.directCardPaymentSupported
+  def directCheckPaymentSupported: Boolean = seq1.directCheckPaymentSupported
+  def autoPayCardCancelSupported: Boolean = seq2.autoPayCardCancelSupported
+  def paymentVerificationSupported: Boolean = seq2.paymentVerificationSupported
+  def supportedAutoPaySetupCardTypeIds: List[Int] = seq2.supportedAutoPaySetupCardTypeIds
+  def supportedDirectPaymentCardTypeIds: List[Int] = seq2.supportedDirectPaymentCardTypeIds
+  def hasPaymentHistory: Boolean = seq2.hasPaymentHistory
+  def timeToUpdatePaymentHistory: Int = seq2.timeToUpdatePaymentHistory
+  def timeToPostDirectCardPayment: Int = seq2.timeToPostDirectCardPayment
+  def isCSCForDirectPaymRequired: Boolean = seq2.isCSCForDirectPaymRequired
+  def isCSCForAutoPayRequired: Boolean = seq2.isCSCForAutoPayRequired
+  def timeZoneId: String = seq2.timeZoneId
+  def isIAVFastSupported: Boolean = seq2.isIAVFastSupported
+  def hasSiblingContentServices: Boolean = seq2.hasSiblingContentServices
+  def isFTEnabled: Boolean = seq2.isFTEnabled
+  def isOnlinePaymentSupported: Boolean = seq2.isOnlinePaymentSupported
+  def autoRegistrationPaperBillSuppressionType: AutoRegistration = seq2.autoRegistrationPaperBillSuppressionType
+  def autoPayCardPaperBillSuppressionType: AutoPay = seq2.autoPayCardPaperBillSuppressionType
+  def directCardPaymentPaperBillSuppressionType: DirectPay = seq2.directCardPaymentPaperBillSuppressionType
+  def loginForm: LoginForm = seq2.loginForm
+  def addItemAccountSupported: Boolean = seq2.addItemAccountSupported
+  def isAddAccountMultiFormAction: Boolean = seq2.isAddAccountMultiFormAction
+  def isAutoRegistrationMultiFormAction: Boolean = seq2.isAutoRegistrationMultiFormAction
+  def isAddItemAccountMultiFormAction: Boolean = seq3.isAddItemAccountMultiFormAction
+  def isSiteCredentialsStored: Boolean = seq3.isSiteCredentialsStored
+  def isPaymentAmountRequiredForAutopay: Boolean = seq3.isPaymentAmountRequiredForAutopay
+  def isNumberOfPaymentsRequiredForAutopay: Boolean = seq3.isNumberOfPaymentsRequiredForAutopay
+  def isFrequencyRequiredForAutopay: Boolean = seq3.isFrequencyRequiredForAutopay
+  def supportedAutopayFrequencyTypes: List[String] = seq3.supportedAutopayFrequencyTypes
+  def isConveninceFeeChargedForDirectCardPayment: Boolean = seq3.isConveninceFeeChargedForDirectCardPayment
+  def conveninceFeeRuleMessage: String = seq3.conveninceFeeRuleMessage
+  def isEBillPaymSupprtd: Boolean = seq3.isEBillPaymSupprtd
+  def isBetaSite: Boolean = seq3.isBetaSite
+  def isBPAASource: Boolean = seq3.isBPAASource
+  def isBPAADest: Boolean = seq3.isBPAADest
+  def supportedBPSRecurringFrequencies: List[String] = seq3.supportedBPSRecurringFrequencies
+  def checkLeadInterval: Int = seq3.checkLeadInterval
+  def cardLeadInterval: Int = seq3.cardLeadInterval
+  def isDocDownloadSupprtd: Boolean = seq3.isDocDownloadSupprtd
+  def mfaType: MFAType = seq3.mfaType
+  def isRtnSupported: Boolean = seq3.isRtnSupported
+  def isFullAccNumberSupported: Boolean = seq3.isFullAccNumberSupported
+  def isAccHolderNameSupported: Boolean = seq3.isAccHolderNameSupported
+  def isDirectTransferSupported: Boolean = seq3.isDirectTransferSupported
+  def isSiblingAutoAdditionSafe: Boolean = seq3.isSiblingAutoAdditionSafe
+  def mfaCoverage: String = seq4.mfaCoverage
+  def defaultHelpText: String = seq4.defaultHelpText
+}
+object ContentServiceInfo {
+  implicit val reads = Json.reads[ContentServiceInfo]
+}
+
+/* Step 4 */
+/* step 4b */
+case class SiteInfoMFA(
+  popularity: Int,
+  siteId: Int,
+  orgId: Int,
+  defaultDisplayName: String,
+  defaultOrgDisplayName: String,
+  contentServiceInfos: List[ContentServiceInfos],
+  enabledContainers: List[ContainerInfo],
+  baseUrl: String,
+  loginForms: List[LoginForm],
+  isHeld: Boolean,
+  isCustom: Boolean,
+  mfaType: MFAType,
+  mfaCoverage: String,
+  siteSearchVisibility: Boolean,
+  isAlreadyAddedByUser: Boolean,
+  isOauthEnabled: Boolean,
+  hdLogoLastModified: Int,
+  isHdLogoAvailable: Boolean
+) extends YodleeSiteInfo
+object SiteInfoMFA {
+  implicit val mfaReads = Json.reads[SiteInfoMFA]
+}
+
+case class SiteInfoInstant(
+  popularity: Int,
+  siteId: Int,
+  orgId: Int,
+  defaultDisplayName: String,
+  defaultOrgDisplayName: String,
+  contentServiceInfos: List[ContentServiceInfos],
+  enabledContainers: List[ContainerInfo],
+  baseUrl: String,
+  loginForms: List[LoginForm],
+  isHeld: Boolean,
+  isCustom: Boolean,
+  siteSearchVisibility: Boolean,
+  isAlreadyAddedByUser: Boolean,
+  isOauthEnabled: Boolean,
+  hdLogoLastModified: Int,
+  isHdLogoAvailable: Boolean
+) extends YodleeSiteInfo
+object SiteInfoInstant {
+  implicit val instantReads = Json.reads[SiteInfoInstant]
+}
+object YodleeSiteInfo {
+  import SiteInfoMFA._
+  import SiteInfoInstant._
+  implicit val reads = instantReads.map(identity[YodleeSiteInfo]) orElse
+                       mfaReads.map(identity[YodleeSiteInfo])
 }
 
 /* Step 5 */
@@ -663,19 +772,17 @@ object YodleeMFA {
   import MFARefreshInfoQuestion._
   import MFARefreshDone._
 
-  implicit val reads = tokenReads.map(identity[YodleeMFA]) orElse
+  implicit val reads = doneReads.map(identity[YodleeMFA]) orElse
+                       tokenReads.map(identity[YodleeMFA]) orElse
                        imageReads.map(identity[YodleeMFA]) orElse
-                       qaReads.map(identity[YodleeMFA]) orElse
-                       doneReads.map(identity[YodleeMFA])
+                       qaReads.map(identity[YodleeMFA])
 }
 
 /* Step 6b */
-case class YodleeMFAPutResponse(response: String)
-/*
+case class YodleeMFAPutResponse(primitiveObj: Boolean)
 object YodleeMFAPutResponse {
   implicit val reads = Json.reads[YodleeMFAPutResponse]
 }
-*/
 /* Step 7 */
 case class RequestStatus(
   verificationRequestStatus: String
