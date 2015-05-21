@@ -203,7 +203,6 @@ case object ContentServiceNotFoundException extends YodleeException
 case object InvalidUserContextException extends YodleeException
 */
 
-/* Response Models for all steps */
 case class CurrencyNotationType(currencyNotationType: String)
 object CurrencyNotationType {
   implicit val reads = Json.reads[CurrencyNotationType]
