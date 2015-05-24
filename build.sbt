@@ -17,7 +17,8 @@ libraryDependencies ++= Seq(
   "org.scala-lang.modules" %% "scala-async" % "0.9.2",
   "org.slf4j" % "slf4j-simple" % "1.7.12",
   "com.typesafe.play" %% "play-ws" % "2.4.0-RC1",
-  "org.scalaz" %% "scalaz-core" % "7.1.2"
+  "org.scalaz" %% "scalaz-core" % "7.1.2",
+  "ch.epfl.lamp" %% "scala-records" % "0.3"
 )
 
 import ScalaxbKeys._

@@ -307,7 +307,7 @@ object YodleeWS {
     }
   }
 
-  def putMFARequest(in: PutMFAInput): Future[Either[YodleeException, YodleeMFAPutResponse]] = {
+  def putMFARequest(in: PutMFAInput): Future[Either[YodleeException, YodleeMFA]] = {
     val data: Map[String, Seq[String]] = {
       val tokens = Map(
         "cobSessionToken" -> Seq(in.getInput.cobSessionToken),
@@ -336,8 +336,8 @@ object YodleeWS {
     }
 
     implicit val putMFASubUrl = "/jsonsdk/Refresh/putMFARequest"
-    def validateResponse(json: JsValue): Either[YodleeException, YodleeMFAPutResponse] = {
-      json.validate[YodleeMFAPutResponse] fold(
+    def validateResponse(json: JsValue): Either[YodleeException, YodleeMFA] = {
+      json.validate[MFAPutResponse] fold(
         valid = Right(_),
         invalid = _ => Left(invalidHandler(json))
       )
@@ -372,6 +372,7 @@ object YodleeWS {
 
     async {
       val resp = await { sendRequest(data, "getVerificationData request timeout") }
+      log info(Json prettyPrint(resp json))
       validateResponse(resp json)
     }
   }

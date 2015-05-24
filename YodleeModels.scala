@@ -7,8 +7,7 @@ sealed trait Component
 sealed trait FieldInfo {
   def mfaFieldInfoType: String
 }
-//sealed trait MFAUserResponse
-sealed trait UserResponse
+sealed trait MFAUserResponse
 
 sealed trait YodleeException
 sealed trait YodleeResponse
@@ -62,7 +61,7 @@ case class GetMFAInput(
 ) extends YodleePost
 case class PutMFAInput(
   getInput: GetMFAInput,
-  userResponse: UserResponse
+  userResponse: MFAUserResponse
 ) extends YodleePost
 case class VerificationDataInput(
   cobSessionToken: String,
@@ -98,15 +97,15 @@ case class QA(
 case class MFAQAResponse(
   objectInstanceType: String,
   quesAnsDetailArray: List[QA]
-) extends UserResponse
+) extends MFAUserResponse
 case class MFAImageResponse(
   objectInstanceType: String,
   imageString: String
-) extends UserResponse
+) extends MFAUserResponse
 case class MFATokenResponse(
   objectInstanceType: String,
   token: String
-) extends UserResponse
+) extends MFAUserResponse
 
 case class UserCredentials(
   loginName: String,
@@ -158,7 +157,7 @@ case class YodleeExtendedException(
   errorOccurred: String,
   exceptionType: String,
   referenceCode: String,
-  message: String //TODO detailedMEssage is also possible
+  message: String   //TODO detailedMEssage only in UnknownException is also possible
 ) extends YodleeException
 object YodleeExtendedException {
   implicit val extendedReads = Json.reads[YodleeExtendedException]
@@ -720,13 +719,14 @@ object ImageFieldInfo {
   implicit val reads = Json.reads[ImageFieldInfo]
 }
 
+sealed trait MFARefreshFields extends YodleeMFA
 case class MFARefreshInfoToken(
   isMessageAvailable: Boolean,
   fieldInfo: TokenFieldInfo,
   timeOutTime: Int,
   itemId: Int,
   retry: Boolean
-) extends YodleeMFA
+) extends MFARefreshFields
 object MFARefreshInfoToken {
   implicit val tokenReads = Json.reads[MFARefreshInfoToken]
 }
@@ -737,7 +737,7 @@ case class MFARefreshInfoImage(
   timeOutTime: Int,
   itemId: Int,
   retry: Boolean
-) extends YodleeMFA
+) extends MFARefreshFields
 object MFARefreshInfoImage {
   implicit val imageReads = Json.reads[MFARefreshInfoImage]
 }
@@ -748,9 +748,18 @@ case class MFARefreshInfoQuestion(
   timeOutTime: Int,
   itemId: Int,
   retry: Boolean
-) extends YodleeMFA
+) extends MFARefreshFields
 object MFARefreshInfoQuestion {
   implicit val qaReads = Json.reads[MFARefreshInfoQuestion]
+}
+
+object MFARefreshFields {
+  import MFARefreshInfoToken._
+  import MFARefreshInfoImage._
+  import MFARefreshInfoQuestion._
+  implicit val fieldsReads = tokenReads.map(identity[MFARefreshFields]) orElse
+                             imageReads.map(identity[MFARefreshFields]) orElse
+                             qaReads.map(identity[MFARefreshFields])
 }
 
 case class MFARefreshDone(
@@ -765,22 +774,30 @@ object MFARefreshDone {
   implicit val doneReads = Json.reads[MFARefreshDone]
 }
 
-object YodleeMFA {
-  import MFARefreshInfoToken._
-  import MFARefreshInfoImage._
-  import MFARefreshInfoQuestion._
-  import MFARefreshDone._
+case class MFARefreshPending(
+  isMessageAvailable: Boolean,
+  timeOutTime: Int,
+  itemId: Int,
+  retry: Boolean
+) extends YodleeMFA
+object MFARefreshPending {
+  implicit val pendingReads = Json.reads[MFARefreshPending]
+}
 
+
+object YodleeMFA {
+  import MFARefreshDone._
+  import MFARefreshPending._
+  import MFARefreshFields._
   implicit val reads = doneReads.map(identity[YodleeMFA]) orElse
-                       tokenReads.map(identity[YodleeMFA]) orElse
-                       imageReads.map(identity[YodleeMFA]) orElse
-                       qaReads.map(identity[YodleeMFA])
+                       fieldsReads.map(identity[YodleeMFA]) orElse
+                       pendingReads.map(identity[YodleeMFA])
 }
 
 /* Step 6b */
-case class YodleeMFAPutResponse(primitiveObj: Boolean)
-object YodleeMFAPutResponse {
-  implicit val reads = Json.reads[YodleeMFAPutResponse]
+case class MFAPutResponse(primitiveObj: Boolean) extends YodleeMFA
+object MFAPutResponse {
+  implicit val reads = Json.reads[MFAPutResponse]
 }
 /* Step 7 */
 case class RequestStatus(

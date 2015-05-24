@@ -242,7 +242,7 @@ object Client extends App {
     )
 
     value map { _ match {
-        case Right(r) => r.primitiveObj
+        case Right(r: MFAPutResponse) => r.primitiveObj
         case Left(e: YodleeException) => throw new Exception(e toString)
       }
     }
